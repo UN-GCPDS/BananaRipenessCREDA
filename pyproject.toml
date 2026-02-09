@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "banana_creda"
+version = "0.1.0"
+description = "Domain Adaptation para madurez de bananos usando CREDA"
+authors = [{ name = "Lucas Iturriago", email = "liturriago@unal.edu.co" }]
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision",
+    "pydantic>=2.0.0",
+    "pyyaml",
+    "numpy",
+    "matplotlib",
+    "seaborn",
+    "scikit-learn",
+    "umap-learn",
+    "kagglehub",
+    "tqdm"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "isort",
+    "mypy"
+]

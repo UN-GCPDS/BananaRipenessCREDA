@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data & Models
+data/
+*.pth
+*.onnx
+outputs/
+
+# Environments
+.venv/
+env/
+venv/
+
+# Notebooks
+.ipynb_checkpoints
+
+# Kaggle / OS
+.kaggle/
+.DS_Store

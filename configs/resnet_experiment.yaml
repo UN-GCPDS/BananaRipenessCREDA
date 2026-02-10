@@ -19,7 +19,7 @@ training:
   warmup: true
   warmup_epochs: 5
   warmup_threshold: 0.9
-  lambda_creda: 1.0
+  lambda_creda: 0.3
   lambda_entropy: 0.0
   use_uncertainty: true
   sigma: "auto"
@@ -28,6 +28,6 @@ training:
   seed: 42
 
 experiment:
-  name: "base_experiment"
+  name: "resnet_experiment"
   version: 1
   output_dir: "outputs/experiment_1"

@@ -1,4 +1,4 @@
-[![ML Pipeline Tests](https://github.com/liturriago/BananaRipenessCREDA/actions/workflows/mlops_engine.yml/badge.svg?branch=main)](https://github.com/liturriago/BananaRipenessCREDA/actions/workflows/mlops_engine.yml)
+[![ML Pipeline Tests](https://github.com/liturriago/BananaRipenessCREDA/actions/workflows/mlops_engine.yml/badge.svg)](https://github.com/liturriago/BananaRipenessCREDA/actions/workflows/mlops_engine.yml)
 
 # Banana Ripeness Classification using CREDA
 

@@ -16,17 +16,22 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
+        cache: 'pip' # Acelera las ejecuciones cacheando librerías
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e .
-        pip install pytest
+        # Instalamos el paquete local + las dependencias de desarrollo [dev]
+        pip install -e .[dev]
 
-    - name: Debug File Structure
+    - name: Debug Project Structure
       run: |
+        echo "--- Contenido de src/ ---"
         ls -R src/
+        echo "--- Contenido de tests/ ---"
+        ls -R tests/
 
     - name: Run Pytest
       run: |
-        python -m pytest tests/
+        # Ya no necesitas 'python -m' si instalaste en modo editable
+        pytest

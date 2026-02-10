@@ -29,3 +29,16 @@ dev = [
     "isort",
     "mypy"
 ]
+
+[tool.pytest.ini_options]
+# Indica dónde están los tests
+testpaths = ["tests"]
+# Patrones de búsqueda de archivos y funciones
+python_files = "test_*.py"
+python_functions = "test_*"
+# Argumentos por defecto: -v (verbose), -ra (reporte de todo menos pass)
+addopts = "-v -ra"
+
+[tool.setuptools.packages.find]
+# Ayuda a setuptools a encontrar tu código en la carpeta src/
+where = ["src"]

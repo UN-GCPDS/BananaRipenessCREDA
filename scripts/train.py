@@ -45,7 +45,7 @@ def run_experiment(config_path: str):
     trained_model = trainer.fit(scheduler=scheduler)
 
     # 5. Evaluación Final y Visualización Avanzada
-    output_path = "outputs/experiment_1"
+    output_path = cfg.experiment.output_dir
     viz = BananaVisualizer(device=device, output_dir=output_path)
     
     print("\nGenerando Reportes Finales y Visualizaciones de Espacio Latente...")

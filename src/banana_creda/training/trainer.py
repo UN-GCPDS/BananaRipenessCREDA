@@ -22,7 +22,8 @@ class BananaTrainer:
         self.scaler = GradScaler(enabled=self.use_amp)
         
         # Warm-up logic inyectada desde config
-        self.criterion.lambda_creda = 0.0 if config.lambda_creda > 0 else 0.0 # Placeholder inicial
+        self.criterion.lambda_creda = 0.0 if config.warmup else config.lambda_creda
+        self.criterion.lambda_entropy = 0.0 if config.warmup else config.lambda_entropy 
         self.history = defaultdict(list)
         self.best_acc = 0.0
         self.best_model_wts = copy.deepcopy(model.state_dict())
@@ -97,9 +98,10 @@ class BananaTrainer:
             val_acc_tgt = self.evaluate(self.target_loaders['validation'], src_classes, "Tgt Val")
 
             # Warm-up condition (Basado en tu lógica)
-            if epoch >= 5 and val_acc_tgt >= 0.9: # Ejemplo de threshold
-                self.criterion.config.lambda_creda = self.config.lambda_creda
-                self.criterion.config.lambda_entropy = self.config.lambda_entropy
+            if self.config.warmup:
+                if epoch >= self.config.warmup_epochs and val_acc_tgt >= self.config.warmup_threshold: 
+                    self.criterion.config.lambda_creda = self.config.lambda_creda
+                    self.criterion.config.lambda_entropy = self.config.lambda_entropy
 
             if val_acc_tgt > self.best_acc:
                 self.best_acc = val_acc_tgt

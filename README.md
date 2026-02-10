@@ -41,7 +41,7 @@ BananaRipenessCREDA/
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/yourusername/BananaRipenessCREDA.git
+    git clone https://github.com/UN-GCPDS/BananaRipenessCREDA.git
     cd BananaRipenessCREDA
     ```
 

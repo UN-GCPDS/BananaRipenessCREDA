@@ -7,7 +7,7 @@ from pathlib import Path
 # Imports del paquete modular que hemos construido
 from banana_creda.config import ExperimentConfig
 from banana_creda.data.loader import BananaDataLoader
-from banana_creda.models.resnet import BananaModel
+from banana_creda.models.backbones import BananaModel
 from banana_creda.losses.creda import CREDALoss
 from banana_creda.training.trainer import BananaTrainer
 from banana_creda.utils.visualizer import BananaVisualizer

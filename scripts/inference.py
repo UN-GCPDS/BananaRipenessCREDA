@@ -1,7 +1,7 @@
 import torch
 import argparse
 from banana_creda.config import ExperimentConfig
-from banana_creda.models.resnet import BananaModel
+from banana_creda.models.backbones import BananaModel
 from banana_creda.data.loader import BananaDataLoader
 from banana_creda.utils.visualizer import BananaVisualizer
 

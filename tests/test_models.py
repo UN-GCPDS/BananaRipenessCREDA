@@ -1,5 +1,5 @@
 import torch
-from banana_creda.models.resnet import BananaModel
+from banana_creda.models.backbones import BananaModel
 
 def test_model_forward_modes(mock_config):
     model = BananaModel(mock_config.model)

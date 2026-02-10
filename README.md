@@ -1,3 +1,5 @@
+[![ML Pipeline Tests](https://github.com/liturriago/BananaRipenessCREDA/actions/workflows/mlops_engine.yml/badge.svg?branch=main)](https://github.com/liturriago/BananaRipenessCREDA/actions/workflows/mlops_engine.yml)
+
 # Banana Ripeness Classification using CREDA
 
 This project implements a Domain Adaptation approach for classifying banana ripeness stages using **Class-Regularized Entropy Domain Adaptation (CREDA)**. The goal is to adapt a model trained on synthetic data (Source Domain) to perform well on real-world banana images (Target Domain), where labels might be scarce or unavailable.

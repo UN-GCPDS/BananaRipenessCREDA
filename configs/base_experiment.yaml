@@ -25,6 +25,7 @@ training:
   sigma: "auto"
   use_amp: true
   device: "cuda"
+  seed: 42
 
 experiment:
   name: "base_experiment"

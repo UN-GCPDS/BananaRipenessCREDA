@@ -11,11 +11,14 @@ from banana_creda.models.resnet import BananaModel
 from banana_creda.losses.creda import CREDALoss
 from banana_creda.training.trainer import BananaTrainer
 from banana_creda.utils.visualizer import BananaVisualizer
+from banana_creda.utils.reproducibility import set_seed
 
 def run_experiment(config_path: str):
     # 1. Cargar Configuración (Validación con Pydantic)
     cfg = ExperimentConfig.from_yaml(config_path)
     device = torch.device(cfg.training.device if torch.cuda.is_available() else "cpu")
+    if cfg.training.seed is not None:
+        set_seed(cfg.training.seed)
     
     # 2. Setup de Datos (Separación de dominios Source/Target)
     data_manager = BananaDataLoader(cfg.data)

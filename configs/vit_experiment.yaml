@@ -10,7 +10,7 @@ data:
 model:
   num_classes: 4
   pretrained: true
-  backbone: "resnet34"
+  backbone: "vit"
 
 training:
   epochs: 10
@@ -28,6 +28,6 @@ training:
   seed: 42
 
 experiment:
-  name: "resnet_experiment"
+  name: "vit_experiment"
   version: 1
-  output_dir: "outputs/resnet/experiment_1"
+  output_dir: "outputs/vit/experiment_1"

@@ -52,9 +52,19 @@ def run_experiment(config_path: str):
     viz = BananaVisualizer(device=device, output_dir=output_path)
     
     print("\nGenerando Reportes Finales y Visualizaciones de Espacio Latente...")
+
+    # Obtenemos datos de test
+    y_true, y_pred, y_probs, _, _ = viz._get_inference_data(trained_model, target_loaders['test']) 
+
+    # Métricas completas
+    metrics = MetricTracker.compute_full_metrics(y_pred, y_true, len(class_names), device)
+    MetricTracker.print_full_report("Target Domain FINAL TEST", metrics, class_names)
     
     # Métricas cuantitativas tradicionales
     viz.plot_confusion_matrix(trained_model, target_loaders['test'], class_names, "Target_Test")
+
+    # Curva ROC
+    viz.plot_roc_curve(trained_model, target_loaders['test'], class_names, "Target_Test")
     
     # Alineación global de dominios (puntos rojos vs azules)
     viz.plot_umap(trained_model, source_loaders['test'], target_loaders['test'], "Domain_Alignment")

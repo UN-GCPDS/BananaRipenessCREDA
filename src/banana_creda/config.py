@@ -17,7 +17,7 @@ class ModelConfig(BaseModel):
     """Configuración de la arquitectura del modelo."""
     num_classes: int = 4
     pretrained: bool = True
-    backbone: str = "resnet34"
+    backbone: Literal["resnet", "vit", "efficientnet", "mobilenetv3"] = "resnet"
 
 class TrainConfig(BaseModel):
     """Configuración del motor de entrenamiento y Domain Adaptation."""

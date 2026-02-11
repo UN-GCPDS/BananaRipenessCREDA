@@ -3,7 +3,7 @@
 [![ML Pipeline Tests](https://img.shields.io/github/actions/workflow/status/liturriago/BananaRipenessCREDA/mlops_engine.yml?style=for-the-badge&logo=github)](https://github.com/liturriago/BananaRipenessCREDA/actions/workflows/mlops_engine.yml)
 
 
-![Banner](./assets/Gemini_Generated_Image_z9itpz9itpz9itpz.png)
+![Banner](./assets/banner.png)
 
 # Banana Ripeness Classification using CREDA
 

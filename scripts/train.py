@@ -12,6 +12,7 @@ from banana_creda.losses.creda import CREDALoss
 from banana_creda.training.trainer import BananaTrainer
 from banana_creda.utils.visualizer import BananaVisualizer
 from banana_creda.utils.reproducibility import set_seed
+from banana_creda.utils.metrics import MetricTracker
 
 def run_experiment(config_path: str):
     # 1. Load Configuration (Validation with Pydantic)

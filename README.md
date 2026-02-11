@@ -12,7 +12,7 @@ This project implements a Domain Adaptation approach for classifying banana ripe
 ## Features
 
 - **Domain Adaptation**: Utilizes CREDA to align feature distributions between synthetic and real domains.
-- **Backbone**: Uses a ResNet (e.g., ResNet-34) pretrained on ImageNet as the feature extractor.
+- **Backbone**: Uses various architectures such as ResNet or ViT pre-trained on ImageNet as the feature extractor.
 - **Uncertainty Awareness**: Incorporates uncertainty weighting to improve alignment robustness.
 - **Visualization**: Includes tools for visualizing Confusion Matrices and UMAP embeddings of the latent space.
 - **Configurable**: Driven by `yaml` configuration files for flexible experimentation.

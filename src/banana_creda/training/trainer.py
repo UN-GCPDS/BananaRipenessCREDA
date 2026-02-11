@@ -68,24 +68,24 @@ class BananaTrainer:
         metrics['time'] = time.time() - start_time
         return metrics
 
-        def evaluate(self, loader, class_names, prefix="Val"):
-            self.model.eval()
-            all_preds, all_labels = [], []
-            
-            with torch.no_grad():
-                for imgs, labels in loader:
-                    imgs, labels = imgs.to(self.device), labels.to(self.device)
-                    logits = self.model(imgs, mode='class')
-                    all_preds.append(torch.max(logits, 1)[1])
-                    all_labels.append(labels)
+    def evaluate(self, loader, class_names, prefix="Val"):
+        self.model.eval()
+        all_preds, all_labels = [], []
+        
+        with torch.no_grad():
+            for imgs, labels in loader:
+                imgs, labels = imgs.to(self.device), labels.to(self.device)
+                logits = self.model(imgs, mode='class')
+                all_preds.append(torch.max(logits, 1)[1])
+                all_labels.append(labels)
 
-            # VÍA RÁPIDA: Solo lo necesario para monitorear el entrenamiento
-            overall_acc, per_class_acc = MetricTracker.compute_accuracy(
-                torch.cat(all_preds), torch.cat(all_labels), len(class_names)
-            )
-            
-            MetricTracker.print_summary(prefix, overall_acc, per_class_acc, class_names)
-            return overall_acc
+        # VÍA RÁPIDA: Solo lo necesario para monitorear el entrenamiento
+        overall_acc, per_class_acc = MetricTracker.compute_accuracy(
+            torch.cat(all_preds), torch.cat(all_labels), len(class_names)
+        )
+        
+        MetricTracker.print_summary(prefix, overall_acc, per_class_acc, class_names)
+        return overall_acc
 
     def fit(self, scheduler=None):
         src_classes = self.source_loaders['train'].dataset.classes

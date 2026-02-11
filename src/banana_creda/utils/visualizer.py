@@ -13,26 +13,26 @@ from itertools import cycle
 
 class BananaVisualizer:
     """
-    Engine de visualización avanzado para Computer Vision y Domain Adaptation.
-    Genera reportes de clasificación, alineación de dominios y curvas ROC.
+    Advanced visualization engine for Computer Vision and Domain Adaptation.
+    Generates classification reports, domain alignment, and ROC curves.
     """
     
     def __init__(self, device: torch.device, output_dir: str = "outputs"):
         self.device = device
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        # Parámetros para revertir la normalización de ImageNet
+        # Parameters to revert ImageNet normalization
         self.mean = np.array([0.485, 0.456, 0.406])
         self.std = np.array([0.229, 0.224, 0.225])
 
     def _denormalize(self, img_tensor: torch.Tensor) -> np.ndarray:
-        """Convierte un tensor normalizado a imagen RGB [0, 1]."""
+        """Converts a normalized tensor to RGB image [0, 1]."""
         img = img_tensor.cpu().numpy().transpose(1, 2, 0)
         img = img * self.std + self.mean
         return np.clip(img, 0, 1)
 
     def _get_inference_data(self, model, loader) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, torch.Tensor]:
-        """Obtiene etiquetas, predicciones, probabilidades, features e imágenes."""
+        """Obtains labels, predictions, probabilities, features, and images."""
         model.eval()
         all_feats, all_labels, all_preds, all_probs, all_imgs = [], [], [], [], []
         
@@ -61,7 +61,7 @@ class BananaVisualizer:
         )
 
     def plot_confusion_matrix(self, model, loader, class_names: List[str], prefix: str):
-        """Genera y guarda la matriz de confusión normalizada."""
+        """Generates and saves the normalized confusion matrix."""
         y_true, y_pred, _, _, _ = self._get_inference_data(model, loader)
         cm = confusion_matrix(y_true, y_pred)
         cm_norm = cm.astype('float') / (cm.sum(axis=1)[:, np.newaxis] + 1e-8)
@@ -71,35 +71,33 @@ class BananaVisualizer:
         sns.heatmap(cm_norm, annot=True, fmt='.2%', cmap='Blues',
                     xticklabels=class_names, yticklabels=class_names)
         
-        plt.title(f'Matriz de Confusión: {prefix}\nAccuracy Global: {acc:.2%}', fontsize=12)
-        plt.xlabel('Predicción')
-        plt.ylabel('Etiqueta Real')
+        plt.title(f'Confusion Matrix: {prefix}\nGlobal Accuracy: {acc:.2%}', fontsize=12)
+        plt.xlabel('Prediction')
+        plt.ylabel('True Label')
         
         path = self.output_dir / f"{prefix}_confusion_matrix.png"
         plt.savefig(path, dpi=300, bbox_inches='tight')
         plt.close()
-        print(f"✅ Matriz de Confusión guardada en: {path}")
+        print(f"Confusion Matrix saved to: {path}")
 
     def plot_roc_curve(self, model, loader, class_names: List[str], prefix: str):
-        """Genera la curva ROC multiclase (One-vs-Rest)."""
+        """Generates the multiclass ROC curve (One-vs-Rest)."""
         y_true, _, y_probs, _, _ = self._get_inference_data(model, loader)
         n_classes = len(class_names)
         
-        # Binarizar etiquetas para cálculo multiclase
+        # Binarize labels for multiclass calculation
         y_true_bin = label_binarize(y_true, classes=range(n_classes))
         
         fpr, tpr, roc_auc = {}, {}, {}
         
-        # Calcular curvas por clase
+        # Calculate curves per class
         for i in range(n_classes):
             fpr[i], tpr[i], _ = roc_curve(y_true_bin[:, i], y_probs[:, i])
             roc_auc[i] = auc(fpr[i], tpr[i])
 
-        # Micro-average ROC
+        #  Micro-average ROC
         fpr["micro"], tpr["micro"], _ = roc_curve(y_true_bin.ravel(), y_probs.ravel())
         roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
-
-        
 
         # Plotting
         plt.figure(figsize=(10, 8))
@@ -123,10 +121,10 @@ class BananaVisualizer:
         path = self.output_dir / f"{prefix}_roc_curve.png"
         plt.savefig(path, dpi=300, bbox_inches='tight')
         plt.close()
-        print(f"✅ Curva ROC guardada en: {path}")
+        print(f"ROC Curve saved to: {path}")
 
     def plot_umap(self, model, source_loader, target_loader, prefix: str):
-        """Visualiza la alineación de dominios."""
+        """Visualize domain alignment."""
         _, _, _, feat_s, _ = self._get_inference_data(model, source_loader)
         _, _, _, feat_t, _ = self._get_inference_data(model, target_loader)
         
@@ -139,15 +137,15 @@ class BananaVisualizer:
         plt.figure(figsize=(10, 8))
         scatter = plt.scatter(embedding[:, 0], embedding[:, 1], c=domains, cmap='coolwarm', s=10, alpha=0.5)
         plt.legend(handles=scatter.legend_elements()[0], labels=['Source', 'Target'])
-        plt.title(f"Alineación de Dominios - {prefix}")
+        plt.title(f"Domain Alignment - {prefix}")
         
         path = self.output_dir / f"{prefix}_umap_alignment.png"
         plt.savefig(path, dpi=300)
         plt.close()
-        print(f"✅ UMAP de Dominios guardado en: {path}")
+        print(f"UMAP of Domains saved to: {path}")
 
     def plot_umap_with_images(self, model, loader, class_names, prefix, min_dist_plots=0.1, image_zoom=0.07):
-        """Genera un UMAP con imágenes reales superpuestas."""
+        """Generates a UMAP with real images superimposed."""
         y_true, _, _, features, images_tensor = self._get_inference_data(model, loader)
         
         reducer = umap.UMAP(n_neighbors=30, min_dist=0.3, metric='cosine', random_state=42)
@@ -171,9 +169,9 @@ class BananaVisualizer:
                 ab = AnnotationBbox(imagebox, curr_pos, bboxprops={"edgecolor": cmap(y_true[i]), "lw": 1.5})
                 ax.add_artist(ab)
 
-        plt.title(f"Espacio Latente Cualitativo - {prefix}")
+        plt.title(f"Qualitative Latent Space - {prefix}")
         plt.axis("off")
         path = self.output_dir / f"{prefix}_umap_samples.png"
         plt.savefig(path, dpi=300, bbox_inches='tight')
         plt.close()
-        print(f"✅ UMAP con imágenes guardado en: {path}")
+        print(f"UMAP with images saved to: {path}")

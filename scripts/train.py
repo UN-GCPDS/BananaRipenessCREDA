@@ -14,13 +14,13 @@ from banana_creda.utils.visualizer import BananaVisualizer
 from banana_creda.utils.reproducibility import set_seed
 
 def run_experiment(config_path: str):
-    # 1. Cargar Configuración (Validación con Pydantic)
+    # 1. Load Configuration (Validation with Pydantic)
     cfg = ExperimentConfig.from_yaml(config_path)
     device = torch.device(cfg.training.device if torch.cuda.is_available() else "cpu")
     if cfg.training.seed is not None:
         set_seed(cfg.training.seed)
     
-    # 2. Setup de Datos (Separación de dominios Source/Target)
+    # 2. Data Setup (Separation of Source/Target domains)
     data_manager = BananaDataLoader(cfg.data)
     src_train, src_val, src_test, class_names = data_manager.get_split_loaders(cfg.data.synth_data_dir)
     tgt_train, tgt_val, tgt_test, _ = data_manager.get_split_loaders(cfg.data.orig_data_dir)
@@ -28,13 +28,13 @@ def run_experiment(config_path: str):
     source_loaders = {'train': src_train, 'validation': src_val, 'test': src_test}
     target_loaders = {'train': tgt_train, 'validation': tgt_val, 'test': tgt_test}
 
-    # 3. Inicializar Modelo, Pérdida CREDA y Optimizer
+    # 3. Model, CREDA Loss, and Optimizer Initialization
     model = BananaModel(cfg.model).to(device)
     criterion = CREDALoss(cfg.training, cfg.model.num_classes).to(device)
     optimizer = optim.Adam(model.parameters(), lr=cfg.training.lr, weight_decay=1e-5)
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=cfg.training.gamma)
 
-    # 4. Motor de Entrenamiento (Trainer con soporte AMP y Warm-up)
+    # 4. Training (Trainer with AMP and Warm-up support)
     trainer = BananaTrainer(
         model=model,
         source_loaders=source_loaders,
@@ -44,46 +44,46 @@ def run_experiment(config_path: str):
         config=cfg.training
     )
     
-    print(f"Iniciando experimento CREDA en {device}...")
+    print(f"Starting CREDA experiment in {device}...")
     trained_model = trainer.fit(scheduler=scheduler)
 
-    # 5. Evaluación Final y Visualización Avanzada
+    # 5. Final Evaluation and Advanced Visualizations
     output_path = cfg.experiment.output_dir
     viz = BananaVisualizer(device=device, output_dir=output_path)
     
-    print("\nGenerando Reportes Finales y Visualizaciones de Espacio Latente...")
+    print("\nGenerating Final Reports and Visualizations of Latent Space...")
 
-    # Obtenemos datos de test
+    # Test data
     y_true, y_pred, y_probs, _, _ = viz._get_inference_data(trained_model, target_loaders['test']) 
 
-    # Métricas completas
+    # Complete metrics
     metrics = MetricTracker.compute_full_metrics(y_pred, y_true, len(class_names), device)
     MetricTracker.print_full_report("Target Domain FINAL TEST", metrics, class_names)
     
-    # Métricas cuantitativas tradicionales
+    # Quantitative metrics
     viz.plot_confusion_matrix(trained_model, target_loaders['test'], class_names, "Target_Test")
 
-    # Curva ROC
+    # ROC curve
     viz.plot_roc_curve(trained_model, target_loaders['test'], class_names, "Target_Test")
     
-    # Alineación global de dominios (puntos rojos vs azules)
+    # Domain alignment (red points vs blue points)
     viz.plot_umap(trained_model, source_loaders['test'], target_loaders['test'], "Domain_Alignment")
     
-    # NUEVO: Análisis cualitativo con imágenes en el espacio latente
-    # Lo ejecutamos sobre el dominio Target (Original) para ver qué está aprendiendo la red
+    # Qualitative analysis with images in the latent space
+    # We execute it on the Target (Original) domain to see what the network is learning
     viz.plot_umap_with_images(
         model=trained_model, 
         loader=target_loaders['test'], 
         class_names=class_names, 
         prefix="Target_Latent_Space",
-        min_dist_plots=0.15, # Ajusta para evitar que las fotos se encimen demasiado
-        image_zoom=0.07      # Ajusta según la resolución de tus imágenes
+        min_dist_plots=0.15, # Adjust to avoid image overlap
+        image_zoom=0.07      # Adjust according to your image resolution
     )
     
-    # Guardar pesos del mejor modelo encontrado
+    # Save best model weights
     save_file = Path(output_path) / "model_final.pth"
     torch.save(trained_model.state_dict(), save_file)
-    print(f"Experimento completado. Resultados y modelos guardados en {output_path}")
+    print(f"Experiment completed. Results and models saved to {output_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

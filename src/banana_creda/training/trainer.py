@@ -21,26 +21,35 @@ class BananaTrainer:
         self.use_amp = config.use_amp and (self.device.type == 'cuda')
         self.scaler = GradScaler(enabled=self.use_amp)
         
-        # Warm-up logic inyectada desde config
-        self.criterion.lambda_creda = 0.0 if config.warmup else config.lambda_creda
-        self.criterion.lambda_entropy = 0.0 if config.warmup else config.lambda_entropy 
+        # Warm-up logic
+        self.criterion.config.lambda_creda = 0.0 if self.config.warmup else config.lambda_creda
+        self.criterion.config.lambda_entropy = 0.0 if self.config.warmup else config.lambda_entropy
+        
+        if self.config.warmup:
+            print(f"Warm-up enabled (Threshold: {self.config.warmup_threshold})")
+            
         self.history = defaultdict(list)
         self.best_acc = 0.0
         self.best_model_wts = copy.deepcopy(model.state_dict())
+
+    def _format_time(self, seconds: float) -> str:
+        """Convierte segundos a formato MM:SS."""
+        m, s = divmod(int(seconds), 60)
+        return f"{m:02d}:{s:02d}"
 
     def train_epoch(self) -> Dict[str, float]:
         self.model.train()
         running_losses = defaultdict(float)
         total_samples = 0
         
-        from itertools import cycle # Import local para evitar overhead
+        from itertools import cycle 
         len_s, len_t = len(self.source_loaders['train']), len(self.target_loaders['train'])
         num_batches = max(len_s, len_t)
         
         src_iter = iter(self.source_loaders['train']) if len_s >= len_t else cycle(self.source_loaders['train'])
         tgt_iter = cycle(self.target_loaders['train']) if len_s >= len_t else iter(self.target_loaders['train'])
 
-        start_time = time.time()
+        epoch_start = time.time()
         for _ in range(num_batches):
             img_s, lbl_s = next(src_iter)
             img_t, _ = next(tgt_iter)
@@ -65,7 +74,7 @@ class BananaTrainer:
                 running_losses[k] += v * batch_size
 
         metrics = {k: v / total_samples for k, v in running_losses.items()}
-        metrics['time'] = time.time() - start_time
+        metrics['epoch_time'] = time.time() - epoch_start
         return metrics
 
     def evaluate(self, loader, class_names, prefix="Val"):
@@ -79,7 +88,6 @@ class BananaTrainer:
                 all_preds.append(torch.max(logits, 1)[1])
                 all_labels.append(labels)
 
-        # VÍA RÁPIDA: Solo lo necesario para monitorear el entrenamiento
         overall_acc, per_class_acc = MetricTracker.compute_accuracy(
             torch.cat(all_preds), torch.cat(all_labels), len(class_names)
         )
@@ -89,27 +97,40 @@ class BananaTrainer:
 
     def fit(self, scheduler=None):
         src_classes = self.source_loaders['train'].dataset.classes
-        
+        warmup_done = False
+        total_train_start = time.time() # Tiempo total del experimento
+
         for epoch in range(self.config.epochs):
-            print(f"\nEpoch {epoch+1}/{self.config.epochs} | LR: {self.optimizer.param_groups[0]['lr']:.6f}")
+            lr_current = self.optimizer.param_groups[0]['lr']
+            print(f"\nEpoch {epoch+1}/{self.config.epochs} | LR: {lr_current:.6f}")
             
             train_metrics = self.train_epoch()
-            print(f"[Train] Loss: {train_metrics['total_loss']:.4f} | CREDA: {train_metrics['loss_creda']:.4f}")
+            formatted_time = self._format_time(train_metrics['epoch_time'])
+            
+            print(f"[Train] Time: {formatted_time} | Loss: {train_metrics['total_loss']:.4f} | Cls loss: {train_metrics['loss_cls']:.4f} | CREDA loss: {train_metrics['loss_creda']:.4f}")
 
             val_acc_src = self.evaluate(self.source_loaders['validation'], src_classes, "Src Val")
             val_acc_tgt = self.evaluate(self.target_loaders['validation'], src_classes, "Tgt Val")
 
-            # Warm-up condition (Basado en tu lógica)
-            if self.config.warmup:
-                if epoch >= self.config.warmup_epochs and val_acc_tgt >= self.config.warmup_threshold: 
+            # Warm-up Logic
+            if self.config.warmup and not warmup_done:
+                if epoch >= self.config.warmup_epochs or val_acc_tgt >= self.config.warmup_threshold: 
                     self.criterion.config.lambda_creda = self.config.lambda_creda
                     self.criterion.config.lambda_entropy = self.config.lambda_entropy
+                    warmup_done = True
+                    print("Warm-up completed: Domain Alignment Activated.")
 
             if val_acc_tgt > self.best_acc:
                 self.best_acc = val_acc_tgt
                 self.best_model_wts = copy.deepcopy(self.model.state_dict())
 
             if scheduler: scheduler.step()
+
+        total_time = time.time() - total_train_start
+        print(f"\n{' TRAINING COMPLETE ':=^50}")
+        print(f"Total Duration: {self._format_time(total_time)}")
+        print(f"Best Target Accuracy: {self.best_acc:.4f}")
+        print("="*50)
 
         self.model.load_state_dict(self.best_model_wts)
         return self.model

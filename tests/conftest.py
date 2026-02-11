@@ -4,12 +4,12 @@ from banana_creda.config import ExperimentConfig
 
 @pytest.fixture
 def mock_config():
-    """Retorna una configuración mínima para pruebas."""
+    """Returns a minimal configuration for tests."""
     return ExperimentConfig.from_yaml("configs/resnet_experiment.yaml")
 
 @pytest.fixture
 def sample_batch():
-    """Genera datos sintéticos: (features, logits, labels)."""
+    """Generates synthetic data: (features, logits, labels)."""
     batch_size = 8
     num_classes = 4
     feat_dim = 512

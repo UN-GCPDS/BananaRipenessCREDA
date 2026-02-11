@@ -7,15 +7,15 @@ from banana_creda.config import DataConfig
 
 class BananaDataLoader:
     """
-    Gestiona la carga de datos para los dominios Original (Target) 
-    y Sintético (Source).
+    Manages the loading of data for the Original (Target) 
+    and Synthetic (Source) domains.
     """
     def __init__(self, config: DataConfig):
         self.config = config
         self.transforms = self._get_transforms()
 
     def _get_transforms(self) -> Dict[str, transforms.Compose]:
-        """Define los pipelines de transformación para entrenamiento e inferencia."""
+        """Defines the transformation pipelines for training and inference."""
         return {
             'train': transforms.Compose([
                 transforms.Resize((self.config.img_size, self.config.img_size)),
@@ -33,12 +33,12 @@ class BananaDataLoader:
 
     def get_split_loaders(self, data_dir: str) -> Tuple[DataLoader, DataLoader, DataLoader, List[str]]:
         """
-        Crea los DataLoaders para train, validation y test de un directorio específico.
+        Creates DataLoaders for train, validation and test from a specific directory.
         """
         splits = ['train', 'validation', 'test']
         loaders = {}
         
-        # Primero cargamos el dataset de entrenamiento para obtener las clases
+        # First load the training dataset to get the classes
         train_path = os.path.join(data_dir, 'train')
         temp_dataset = datasets.ImageFolder(root=train_path)
         class_names = temp_dataset.classes
@@ -48,7 +48,7 @@ class BananaDataLoader:
             dataset_path = os.path.join(data_dir, split)
             
             if not os.path.exists(dataset_path):
-                raise FileNotFoundError(f"No se encontró la carpeta: {dataset_path}")
+                raise FileNotFoundError(f"Directory not found: {dataset_path}")
 
             dataset = datasets.ImageFolder(
                 root=dataset_path,
@@ -61,7 +61,7 @@ class BananaDataLoader:
                 shuffle=(split == 'train'),
                 num_workers=self.config.num_workers,
                 pin_memory=True,
-                # Optimizaciones de rendimiento para GPUs modernas
+                # Performance optimizations for modern GPUs
                 prefetch_factor=2 if self.config.num_workers > 0 else None,
                 persistent_workers=True if self.config.num_workers > 0 else False
             )

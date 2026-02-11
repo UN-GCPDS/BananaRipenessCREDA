@@ -5,13 +5,13 @@ class MetricTracker:
     @staticmethod
     def compute_accuracy(preds: torch.Tensor, labels: torch.Tensor, num_classes: int) -> Tuple[float, List[float]]:
         """
-        VÍA RÁPIDA: Optimizado para el bucle de entrenamiento.
-        Calcula solo Accuracy global y por clase usando máscaras booleanas.
+        FAST PATH: Optimized for the training loop.
+        Computes global and per-class accuracy using boolean masks.
         """
-        # Accuracy Global (Operación vectorial pura)
+        # Global accuracy (Pure vector operation)
         overall_acc = (preds == labels).sum().item() / labels.numel()
         
-        # Accuracy por Clase
+        # Per-class accuracy
         per_class_acc = []
         for i in range(num_classes):
             mask = (labels == i)
@@ -28,8 +28,8 @@ class MetricTracker:
     @staticmethod
     def compute_full_metrics(preds: torch.Tensor, labels: torch.Tensor, num_classes: int, device: torch.device) -> Dict:
         """
-        VÍA COMPLETA: Para reportes científicos finales.
-        Calcula Precision, Recall, F1 y Support.
+        FULL PATH: For final scientific reports.
+        Calculates Precision, Recall, F1 and Support.
         """
         conf_matrix = torch.zeros(num_classes, num_classes, device=device)
         for t, p in zip(labels.view(-1), preds.view(-1)):
@@ -44,7 +44,7 @@ class MetricTracker:
             fn = conf_matrix[i, :].sum().item() - tp
             support = int(conf_matrix[i, :].sum().item())
             
-            # Métricas avanzadas
+            # Advanced metrics
             prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
             rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
             f1 = 2 * (prec * rec) / (prec + rec) if (prec + rec) > 0 else 0.0
@@ -59,7 +59,7 @@ class MetricTracker:
 
     @staticmethod
     def print_summary(prefix: str, overall_acc: float, per_class_acc: List[float], class_names: List[str]):
-        """Impresión ligera para el Trainer."""
+        """Light summary for the Trainer."""
         print(f"\n[{prefix}] Overall Acc: {overall_acc:.4f}")
         print(f"  > {'Class':<15} | {'Acc':<8}")
         print(f"  {'-'*27}")
@@ -69,7 +69,7 @@ class MetricTracker:
 
     @staticmethod
     def print_full_report(prefix: str, metrics: Dict, class_names: List[str]):
-        """Impresión exhaustiva para el final del experimento."""
+        """Full report for the final experiment."""
         print(f"\n{' REPORT: ' + prefix + ' ':=^75}")
         print(f"{'Class':<20} | {'Prec.':<8} | {'Recall':<8} | {'F1-Score':<8} | {'Support':<8}")
         print("-" * 75)

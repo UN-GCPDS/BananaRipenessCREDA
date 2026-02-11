@@ -3,17 +3,17 @@ from pathlib import Path
 from banana_creda.config import ExperimentConfig
 
 def download():
-    # Solo necesitamos la config de datos para saber dónde guardarlos
-    # pero usamos ExperimentConfig para mantener consistencia
+    # We only need the data config to know where to save the data
+    # but we use ExperimentConfig to maintain consistency
     try:
-        print("Autenticando y descargando dataset de Kaggle...")
+        print("Authenticating and downloading dataset from Kaggle...")
         path = kagglehub.dataset_download('lucasiturriago/bananaripeness')
-        print(f"Dataset disponible en: {path}")
+        print(f"Dataset available at: {path}")
         
-        # Aquí podrías añadir lógica para mover o crear symlinks 
-        # hacia las carpetas definidas en tu YAML si fuera necesario.
+        # You can add logic to move or create symlinks 
+        # towards the folders defined in your YAML if needed.
     except Exception as e:
-        print(f"Error al descargar: {e}")
+        print(f"Error downloading dataset: {e}")
 
 if __name__ == "__main__":
     download()

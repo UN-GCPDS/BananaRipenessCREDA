@@ -13,7 +13,7 @@ model:
   backbone: "mobilenetv3"
 
 training:
-  epochs: 10
+  epochs: 20
   lr: 0.0001
   gamma: 0.94
   warmup: true

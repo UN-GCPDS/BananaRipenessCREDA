@@ -73,7 +73,7 @@ Key parameters include:
     -   `synth_data_dir`: Path to the synthetic dataset (Source).
     -   `batch_size`: Batch size for training.
 -   **model**:
-    -   `backbone`: ResNet architecture (e.g., `resnet18`, `resnet34`).
+    -   `backbone`: Model architecture (e.g., `resnet`, `efficientnet`).
     -   `num_classes`: Number of ripeness stages (default: 4).
 -   **training**:
     -   `epochs`: Number of training epochs.
@@ -96,15 +96,15 @@ This script will:
 1.  Load the configuration.
 2.  Initialize the datasets and model.
 3.  Train the model using the Source (labeled) and Target (unlabeled) data.
-4.  Save the best model to `outputs/experiment_1/model_final.pth`.
-5.  Generate evaluation plots (Confusion Matrix, UMAP) in `outputs/experiment_1`.
+4.  Save the best model to `outputs/model/experiment_1/model_final.pth`.
+5.  Generate evaluation plots (Confusion Matrix, ROC curve, UMAP) in `outputs/model/experiment_1`.
 
 ### Inference
 
 To run inference on the target test set with a trained model:
 
 ```bash
-python scripts/inference.py --config configs/base_experiment.yaml --model outputs/experiment_1/model_final.pth
+python scripts/inference.py --config configs/model_experiment.yaml --model outputs/model/experiment_1/model_final.pth
 ```
 
 ### Testing

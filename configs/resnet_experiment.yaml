@@ -10,7 +10,7 @@ data:
 model:
   num_classes: 4
   pretrained: true
-  backbone: "resnet34"
+  backbone: "resnet"
 
 training:
   epochs: 10

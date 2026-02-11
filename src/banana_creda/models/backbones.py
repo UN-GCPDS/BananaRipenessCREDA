@@ -26,7 +26,7 @@ class BananaModel(nn.Module):
         bb_name = self.config.backbone.lower()
         weights = "IMAGENET1K_V1" if self.config.pretrained else None
         
-        if bb_name == "resnet34":
+        if bb_name == "resnet":
             model = models.resnet34(weights=weights)
             num_in = model.fc.in_features
             model.fc = nn.Identity() # Removemos el head original

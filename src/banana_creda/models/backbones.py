@@ -47,7 +47,7 @@ class BananaModel(nn.Module):
             model = models.mobilenet_v3_large(weights=weights)
             # MobileNetV3 has a complex head in .classifier
             num_in = model.classifier[3].in_features
-            model.classifier = nn.Identity()
+            model.classifier[3] = nn.Identity()
             
         else:
             raise ValueError(f"Backbone '{bb_name}' not supported for Banana model")

@@ -24,19 +24,28 @@ class TrainConfig(BaseModel):
     epochs: int = Field(default=10, gt=0)
     lr: float = Field(default=1e-4, gt=0)
     gamma: float = 0.94
-    # Warmup logic to stabilize initial training
+    
+    # Warm-up logic
     warmup: bool = True
-    warmup_epochs: int = 5
-    warmup_threshold: float = 0.9
-    # CREDA hyperparameters
-    lambda_creda: float = 1.0
-    lambda_entropy: float = 0.0  # Desactivado según tu base_experiment.yaml
+    warmup_epochs: int = Field(default=5, ge=0)
+    warmup_threshold: float = Field(default=0.9, ge=0.0, le=1.0)
+    
+    # CREDA static hyperparameters
+    lambda_creda: float = Field(default=1.0, ge=0.0)
+    lambda_entropy: float = Field(default=0.0, ge=0.0)
+    
+    # --- Dynamic Lambda Logic (OnPlateau) ---
+    dynamic_lambda: bool = False
+    lambda_patience: int = Field(default=3, ge=1)
+    lambda_up_factor: float = Field(default=1.2, gt=1.0)
+    lambda_down_factor: float = Field(default=0.8, lt=1.0)
+    # ----------------------------------------
+
     use_uncertainty: bool = True
     sigma: Union[float, str] = "auto"
-    # Infrastructure
     use_amp: bool = True
     device: str = "cuda"
-    seed: int = 42 # Seed for scientific reproducibility
+    seed: Optional[int] = 42
 
 class ExperimentMetadata(BaseModel):
     """Metadata for version control and project outputs."""
@@ -45,7 +54,7 @@ class ExperimentMetadata(BaseModel):
     output_dir: str = "outputs/experiment_1"
 
 class ExperimentConfig(BaseModel):
-    """Global schema that unites all configurations for validation with Pydantic."""
+    """Global schema that unites all configurations."""
     data: DataConfig
     model: ModelConfig
     training: TrainConfig

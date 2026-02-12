@@ -21,6 +21,10 @@ training:
   warmup_threshold: 0.9
   lambda_creda: 0.3
   lambda_entropy: 0.0
+  dynamic_lambda: true
+  lambda_patience: 3
+  lambda_up_factor: 1.2
+  lambda_down_factor: 0.8
   use_uncertainty: true
   sigma: "auto"
   use_amp: true

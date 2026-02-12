@@ -21,9 +21,16 @@ class BananaTrainer:
         self.use_amp = config.use_amp and (self.device.type == 'cuda')
         self.scaler = GradScaler(enabled=self.use_amp)
         
-        # Warm-up logic
+        # Warm-up logic initialization
         self.criterion.config.lambda_creda = 0.0 if self.config.warmup else config.lambda_creda
         self.criterion.config.lambda_entropy = 0.0 if self.config.warmup else config.lambda_entropy
+        
+        # Adaptive Lambda Logic Config
+        self.dynamic_lambda = self.config.dynamic_lambda
+        self.lambda_patience = self.config.lambda_patience
+        self.lambda_up_factor = self.config.lambda_up_factor   # Factor to increase lambda
+        self.lambda_down_factor = self.config.lambda_down_factor # Factor to decrease lambda
+        self.patience_counter = 0
         
         if self.config.warmup:
             print(f"Warm-up enabled (Threshold: {self.config.warmup_threshold})")
@@ -33,7 +40,7 @@ class BananaTrainer:
         self.best_model_wts = copy.deepcopy(model.state_dict())
 
     def _format_time(self, seconds: float) -> str:
-        """Convierte segundos a formato MM:SS."""
+        """Converts seconds to MM:SS format."""
         m, s = divmod(int(seconds), 60)
         return f"{m:02d}:{s:02d}"
 
@@ -97,8 +104,8 @@ class BananaTrainer:
 
     def fit(self, scheduler=None):
         src_classes = self.source_loaders['train'].dataset.classes
-        warmup_done = False
-        total_train_start = time.time() # Tiempo total del experimento
+        warmup_done = not self.config.warmup
+        total_train_start = time.time()
 
         for epoch in range(self.config.epochs):
             lr_current = self.optimizer.param_groups[0]['lr']
@@ -118,11 +125,31 @@ class BananaTrainer:
                     self.criterion.config.lambda_creda = self.config.lambda_creda
                     self.criterion.config.lambda_entropy = self.config.lambda_entropy
                     warmup_done = True
-                    print("Warm-up completed: Domain Alignment Activated.")
+                    print("Warm-up completed: Domain Alignment Activated")
 
+            # Logic for Best Model and Dynamic Lambda
             if val_acc_tgt > self.best_acc:
                 self.best_acc = val_acc_tgt
                 self.best_model_wts = copy.deepcopy(self.model.state_dict())
+                self.patience_counter = 0
+            else:
+                self.patience_counter += 1
+
+            # Execute Dynamic Lambda Adjustment if enabled and warm-up is over
+            if self.dynamic_lambda and warmup_done and self.patience_counter >= self.lambda_patience:
+                # Heuristic: If there is still a significant gap, increase lambda. 
+                # If target is stalling but source is also dropping, decrease lambda (negative transfer).
+                if (val_acc_src - val_acc_tgt) > 0.15:
+                    self.criterion.config.lambda_creda *= self.lambda_up_factor
+                    self.criterion.config.lambda_entropy *= self.lambda_up_factor
+                    action = "Increasing"
+                else:
+                    self.criterion.config.lambda_creda *= self.lambda_down_factor
+                    self.criterion.config.lambda_entropy *= self.lambda_down_factor
+                    action = "Decreasing"
+                
+                print(f"Patience reached. {action} lambdas. New CREDA lambda: {self.criterion.config.lambda_creda:.4f}")
+                self.patience_counter = 0
 
             if scheduler: scheduler.step()
 

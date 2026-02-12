@@ -19,6 +19,8 @@ class CREDALoss(nn.Module):
         self.num_classes = num_classes
         self.eps = 1e-8
         # Constant for log2
+        self.lambda_creda = config.lambda_creda
+        self.lambda_entropy = config.lambda_entropy
         self.register_buffer("log2", torch.log(torch.tensor(2.0)))
 
     def _compute_sigma(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
@@ -119,7 +121,7 @@ class CREDALoss(nn.Module):
             loss_creda = creda_accum / valid_classes
 
         # Final combination with configuration weights
-        total_loss = loss_cls + (self.config.lambda_creda * loss_creda) + (self.config.lambda_entropy * loss_ent)
+        total_loss = loss_cls + (self.lambda_creda * loss_creda) + (self.lambda_entropy * loss_ent)
         
         return total_loss, {
             "total_loss": total_loss.item(),

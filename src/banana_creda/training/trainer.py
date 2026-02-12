@@ -107,7 +107,8 @@ class BananaTrainer:
         warmup_done = not self.config.warmup
         total_train_start = time.time()
 
-        print(f"Initial Lambda CREDA loss value: {self.criterion.config.lambda_creda}")
+        print(f"Initial Lambda CREDA loss value: {self.criterion.lambda_creda}")
+        print(f"Config Lambda CREDA value: {self.config.lambda_creda}")
 
         for epoch in range(self.config.epochs):
             lr_current = self.optimizer.param_groups[0]['lr']
@@ -124,10 +125,10 @@ class BananaTrainer:
             # Warm-up Logic
             if self.config.warmup and not warmup_done:
                 if epoch >= self.config.warmup_epochs or val_acc_tgt >= self.config.warmup_threshold: 
-                    self.criterion.config.lambda_creda = self.config.lambda_creda
-                    self.criterion.config.lambda_entropy = self.config.lambda_entropy
+                    self.criterion.lambda_creda = self.config.lambda_creda
+                    self.criterion.lambda_entropy = self.config.lambda_entropy
                     warmup_done = True
-                    print(f"Warm-up completed: Domain Alignment Activated | Lambda CREDA: {self.criterion.config.lambda_creda}")
+                    print(f"Warm-up completed: Domain Alignment Activated | Lambda CREDA: {self.criterion.lambda_creda}")
 
             # Logic for Best Model and Dynamic Lambda
             if val_acc_tgt > self.best_acc:
@@ -142,15 +143,15 @@ class BananaTrainer:
                 # Heuristic: If there is still a significant gap, increase lambda. 
                 # If target is stalling but source is also dropping, decrease lambda (negative transfer).
                 if (val_acc_src - val_acc_tgt) > 0.15:
-                    self.criterion.config.lambda_creda *= self.lambda_up_factor
-                    self.criterion.config.lambda_entropy *= self.lambda_up_factor
+                    self.criterion.lambda_creda *= self.lambda_up_factor
+                    self.criterion.lambda_entropy *= self.lambda_up_factor
                     action = "Increasing"
                 else:
-                    self.criterion.config.lambda_creda *= self.lambda_down_factor
-                    self.criterion.config.lambda_entropy *= self.lambda_down_factor
+                    self.criterion.lambda_creda *= self.lambda_down_factor
+                    self.criterion.lambda_entropy *= self.lambda_down_factor
                     action = "Decreasing"
                 
-                print(f"Patience reached. {action} lambdas. New CREDA lambda: {self.criterion.config.lambda_creda:.4f}")
+                print(f"Patience reached. {action} lambdas. New CREDA lambda: {self.criterion.lambda_creda:.4f}")
                 self.patience_counter = 0
 
             if scheduler: scheduler.step()

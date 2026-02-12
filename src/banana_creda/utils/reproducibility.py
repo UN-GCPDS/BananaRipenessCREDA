@@ -18,8 +18,8 @@ def set_seed(seed: int = 42):
     torch.cuda.manual_seed_all(seed) 
     
     # 3. CuDNN configuration for determinism
-    # Nota: Esto puede reducir ligeramente el rendimiento pero asegura consistencia
+    # Note: This may slightly reduce performance but ensures consistency
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     
-    print(f"✅ Semillas fijadas en: {seed}")
+    print(f"Seeds fixed at: {seed}")

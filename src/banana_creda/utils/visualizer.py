@@ -7,6 +7,7 @@ import umap
 from sklearn.metrics import confusion_matrix, roc_curve, auc
 from sklearn.preprocessing import label_binarize
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from matplotlib.lines import Line2D
 from pathlib import Path
 from typing import List, Tuple, Optional
 from itertools import cycle
@@ -145,16 +146,22 @@ class BananaVisualizer:
         print(f"UMAP of Domains saved to: {path}")
 
     def plot_umap_with_images(self, model, loader, class_names, prefix, min_dist_plots=0.1, image_zoom=0.07):
-        """Generates a UMAP with real images superimposed."""
+        """Generates a UMAP with real images superimposed and a class legend."""
+        # 1. Get inference data
         y_true, _, _, features, images_tensor = self._get_inference_data(model, loader)
         
+        # 2. Compute UMAP projection
         reducer = umap.UMAP(n_neighbors=30, min_dist=0.3, metric='cosine', random_state=42)
         embedding = reducer.fit_transform(features)
         
-        plt.figure(figsize=(12, 10))
+        # 3. Setup Plot
+        plt.figure(figsize=(14, 10)) # Slightly wider for legend placement
         cmap = plt.get_cmap('tab10')
-        plt.scatter(embedding[:, 0], embedding[:, 1], c=y_true, cmap=cmap, s=15, alpha=0.2)
         
+        # Draw background points
+        scatter = plt.scatter(embedding[:, 0], embedding[:, 1], c=y_true, cmap=cmap, s=15, alpha=0.2)
+        
+        # 4. Superimpose Images (AnnotationBbox)
         shown_positions = np.array([[1000.0, 1000.0]]) 
         ax = plt.gca()
         
@@ -165,13 +172,30 @@ class BananaVisualizer:
             if np.min(dist) > min_dist_plots:
                 shown_positions = np.r_[shown_positions, [curr_pos]]
                 img_rgb = self._denormalize(images_tensor[i])
+                
                 imagebox = OffsetImage(img_rgb, zoom=image_zoom)
-                ab = AnnotationBbox(imagebox, curr_pos, bboxprops={"edgecolor": cmap(y_true[i]), "lw": 1.5})
+                # Use the class color for the bounding box edge
+                ab = AnnotationBbox(
+                    imagebox, curr_pos, 
+                    bboxprops={"edgecolor": cmap(y_true[i]), "lw": 1.5}
+                )
                 ax.add_artist(ab)
 
-        plt.title(f"Qualitative Latent Space - {prefix}")
+        # 5. Add Legend with proxy artists
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='w', label=class_names[i],
+                   markerfacecolor=cmap(i), markersize=10)
+            for i in range(len(class_names))
+        ]
+        
+        ax.legend(handles=legend_elements, loc='upper right', title="Banana Classes", 
+                  bbox_to_anchor=(1.15, 1))
+
+        plt.title(f"Qualitative Latent Space - {prefix}", fontsize=14)
         plt.axis("off")
+        
+        # Save results
         path = self.output_dir / f"{prefix}_umap_samples.png"
         plt.savefig(path, dpi=300, bbox_inches='tight')
         plt.close()
-        print(f"UMAP with images saved to: {path}")
+        print(f"UMAP with images and legend saved to: {path}")

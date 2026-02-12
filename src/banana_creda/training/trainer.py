@@ -107,6 +107,8 @@ class BananaTrainer:
         warmup_done = not self.config.warmup
         total_train_start = time.time()
 
+        print(f"Initial Lambda CREDA loss value: {self.criterion.config.lambda_creda}")
+
         for epoch in range(self.config.epochs):
             lr_current = self.optimizer.param_groups[0]['lr']
             print(f"\nEpoch {epoch+1}/{self.config.epochs} | LR: {lr_current:.6f}")
@@ -125,7 +127,7 @@ class BananaTrainer:
                     self.criterion.config.lambda_creda = self.config.lambda_creda
                     self.criterion.config.lambda_entropy = self.config.lambda_entropy
                     warmup_done = True
-                    print("Warm-up completed: Domain Alignment Activated")
+                    print(f"Warm-up completed: Domain Alignment Activated | Lambda CREDA: {self.criterion.config.lambda_creda}")
 
             # Logic for Best Model and Dynamic Lambda
             if val_acc_tgt > self.best_acc:

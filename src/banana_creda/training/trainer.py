@@ -22,18 +22,18 @@ class BananaTrainer:
         self.scaler = GradScaler(enabled=self.use_amp)
         
         # Warm-up logic initialization
-        self.criterion.config.lambda_creda = 0.0 if self.config.warmup else config.lambda_creda
-        self.criterion.config.lambda_entropy = 0.0 if self.config.warmup else config.lambda_entropy
+        self.criterion.lambda_creda = 0.0 if config.warmup else config.lambda_creda
+        self.criterion.lambda_entropy = 0.0 if config.warmup else config.lambda_entropy
         
         # Adaptive Lambda Logic Config
-        self.dynamic_lambda = self.config.dynamic_lambda
-        self.lambda_patience = self.config.lambda_patience
-        self.lambda_up_factor = self.config.lambda_up_factor   # Factor to increase lambda
-        self.lambda_down_factor = self.config.lambda_down_factor # Factor to decrease lambda
+        self.dynamic_lambda = config.dynamic_lambda
+        self.lambda_patience = config.lambda_patience
+        self.lambda_up_factor = config.lambda_up_factor   # Factor to increase lambda
+        self.lambda_down_factor = config.lambda_down_factor # Factor to decrease lambda
         self.patience_counter = 0
         
-        if self.config.warmup:
-            print(f"Warm-up enabled (Threshold: {self.config.warmup_threshold})")
+        if config.warmup:
+            print(f"Warm-up enabled (Threshold: {config.warmup_threshold})")
             
         self.history = defaultdict(list)
         self.best_acc = 0.0

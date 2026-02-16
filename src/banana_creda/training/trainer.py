@@ -58,8 +58,11 @@ class BananaTrainer:
 
         epoch_start = time.time()
         for _ in range(num_batches):
-            img_s, lbl_s = next(src_iter)
-            img_t, _ = next(tgt_iter)
+            src_batch = next(src_iter)
+            img_s, lbl_s = src_batch[:2]
+
+            tgt_batch = next(tgt_iter)
+            img_t = tgt_batch[0]
             
             img_s, lbl_s, img_t = img_s.to(self.device), lbl_s.to(self.device), img_t.to(self.device)
             self.optimizer.zero_grad()
@@ -89,7 +92,8 @@ class BananaTrainer:
         all_preds, all_labels = [], []
         
         with torch.no_grad():
-            for imgs, labels in loader:
+            for batch in loader:
+                imgs, labels = batch[:2]
                 imgs, labels = imgs.to(self.device), labels.to(self.device)
                 logits = self.model(imgs, mode='class')
                 all_preds.append(torch.max(logits, 1)[1])

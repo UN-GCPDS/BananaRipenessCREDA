@@ -25,7 +25,7 @@ def run_experiment(config_path: str):
     
     # 2. Data Setup (Source: Synthetic / Target: Original)
     data_manager = BananaDataLoader(cfg.data)
-    src_train, src_val, src_test, class_names = data_manager.get_split_loaders(cfg.data.synth_data_dir)
+    src_train, src_val, src_test, class_names = data_manager.get_split_loaders(cfg.data.synth_data_dir, cfg.data.source_lime_variant)
     tgt_train, tgt_val, tgt_test, _ = data_manager.get_split_loaders(cfg.data.orig_data_dir)
     
     source_loaders = {'train': src_train, 'validation': src_val, 'test': src_test}
@@ -84,7 +84,8 @@ def run_experiment(config_path: str):
     # Qualitative: Latent Space with Real Images
     viz.plot_umap_with_images(
         model=trained_model, 
-        loader=target_loaders['test'], 
+        source_loader=source_loaders['test'], 
+        target_loader=target_loaders['test'], 
         class_names=class_names, 
         prefix="Target_Latent_Space",
         min_dist_plots=0.15,

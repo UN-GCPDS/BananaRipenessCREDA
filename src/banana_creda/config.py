@@ -12,6 +12,7 @@ class DataConfig(BaseModel):
     num_workers: int = Field(default=4)
     imagenet_mean: List[float] = [0.485, 0.456, 0.406]
     imagenet_std: List[float] = [0.229, 0.224, 0.225]
+    source_lime_variant: bool = False
 
 class ModelConfig(BaseModel):
     """Configuration for model architecture."""  

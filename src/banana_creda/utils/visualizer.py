@@ -150,10 +150,6 @@ class BananaVisualizer:
         plt.savefig(path, dpi=300, bbox_inches='tight')
         plt.close()
 
-    # =========================================================
-    # Advanced UMAP (Paper-Level)
-    # =========================================================
-
     def plot_umap_with_images(
         self,
         model,
@@ -162,15 +158,24 @@ class BananaVisualizer:
         class_names,
         prefix,
         image_zoom=0.07,
-        min_dist_plots=0.15
+        min_dist_plots=0.15,
+        draw_lime_groups: bool = True
     ):
 
-        y_s, _, _, feat_s, imgs_s, lime_s, dom_s = self._get_inference_data(
+        src_data = self._get_inference_data(
             model,
             source_loader,
             return_lime_variant=True,
             domain_id=0
         )
+
+        if len(src_data) == 7:
+            y_s, _, _, feat_s, imgs_s, lime_s, dom_s = src_data
+            has_lime = True
+        else:
+            y_s, _, _, feat_s, imgs_s, dom_s = src_data
+            lime_s = None
+            has_lime = False
 
         y_t, _, _, feat_t, imgs_t, dom_t = self._get_inference_data(
             model,
@@ -184,7 +189,9 @@ class BananaVisualizer:
         domains = np.concatenate([dom_s, dom_t])
 
         images_tensor = torch.cat([imgs_s, imgs_t])
-        lime_variants = np.concatenate([lime_s, np.full(len(y_t), -1)])
+
+        if has_lime:
+            lime_variants = np.concatenate([lime_s, np.full(len(y_t), -1)])
 
         reducer = umap.UMAP(
             n_neighbors=30,
@@ -239,32 +246,39 @@ class BananaVisualizer:
 
                 ax.add_artist(ab)
 
-        unique_lime = np.unique(lime_s)
+        if draw_lime_groups and has_lime:
 
-        for variant in unique_lime:
+            unique_lime = np.unique(lime_s)
 
-            idx = (lime_variants == variant) & (domains == 0)
+            for variant in unique_lime:
 
-            if np.sum(idx) < 4:
-                continue
+                idx = (lime_variants == variant) & (domains == 0)
 
-            points = embedding[idx]
+                if np.sum(idx) < 4:
+                    continue
 
-            try:
-                hull = ConvexHull(points)
+                points = embedding[idx]
 
-                for simplex in hull.simplices:
-                    plt.plot(
-                        points[simplex, 0],
-                        points[simplex, 1],
-                        linestyle='--',
-                        linewidth=2,
-                        alpha=0.7
+                try:
+                    hull = ConvexHull(points)
+
+                    plt.fill(
+                        points[hull.vertices, 0],
+                        points[hull.vertices, 1],
+                        alpha=0.06
                     )
 
-            except Exception:
-                # Degenerate case (collinearity etc.)
-                continue
+                    for simplex in hull.simplices:
+                        plt.plot(
+                            points[simplex, 0],
+                            points[simplex, 1],
+                            linestyle='--',
+                            linewidth=1.5,
+                            alpha=0.6
+                        )
+
+                except Exception:
+                    continue
 
         domain_legend = [
             Line2D([0], [0], marker='o', color='w',

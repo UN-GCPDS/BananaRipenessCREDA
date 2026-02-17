@@ -141,6 +141,7 @@ class BananaTrainer:
                     self.criterion.lambda_creda = self.config.lambda_creda
                     self.criterion.lambda_entropy = self.config.lambda_entropy
                     warmup_done = True
+                    val_acc_tgt = 0.0
                     print(f"Warm-up completed: Domain Alignment Activated | Lambda CREDA: {self.criterion.lambda_creda}")
 
             # Execute Dynamic Lambda Adjustment if enabled and warm-up is over

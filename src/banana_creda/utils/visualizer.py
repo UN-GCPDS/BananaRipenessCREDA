@@ -155,6 +155,27 @@ class BananaVisualizer:
     # UMAP with Images
     # =========================================================
 
+    def plot_umap(self, model, source_loader, target_loader, prefix: str):
+        """Visualize domain alignment."""
+        _, _, _, feat_s, _ = self._get_inference_data(model, source_loader)
+        _, _, _, feat_t, _ = self._get_inference_data(model, target_loader)
+        
+        features = np.concatenate([feat_s, feat_t])
+        domains = np.concatenate([np.zeros(len(feat_s)), np.ones(len(feat_t))])
+        
+        reducer = umap.UMAP(n_neighbors=30, min_dist=0.3, metric='cosine', random_state=42)
+        embedding = reducer.fit_transform(features)
+        
+        plt.figure(figsize=(10, 8))
+        scatter = plt.scatter(embedding[:, 0], embedding[:, 1], c=domains, cmap='coolwarm', s=10, alpha=0.5)
+        plt.legend(handles=scatter.legend_elements()[0], labels=['Source', 'Target'])
+        plt.title(f"Domain Alignment - {prefix}")
+        
+        path = self.output_dir / f"{prefix}_umap_alignment.png"
+        plt.savefig(path, dpi=300)
+        plt.close()
+        print(f"UMAP of Domains saved to: {path}")
+
     def plot_umap_with_images(
         self,
         model,

@@ -16,6 +16,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.lines import Line2D
 
 from scipy.spatial import ConvexHull
+from scipy.stats import pearsonr
 
 class BananaVisualizer:
     """
@@ -150,6 +151,10 @@ class BananaVisualizer:
         plt.savefig(path, dpi=300, bbox_inches='tight')
         plt.close()
 
+    # =========================================================
+    # UMAP with Images
+    # =========================================================
+
     def plot_umap_with_images(
         self,
         model,
@@ -159,29 +164,21 @@ class BananaVisualizer:
         prefix,
         image_zoom=0.07,
         min_dist_plots=0.15,
-        draw_lime_groups: bool = True
+        use_lime=False
     ):
 
-        src_data = self._get_inference_data(
+        y_s, _, _, feat_s, imgs_s, lime_s, dom_s = self._get_inference_data(
             model,
             source_loader,
-            return_lime_variant=True,
-            domain_id=0
+            return_lime_variant=use_lime,
+            domain_id= 0 if use_lime else None
         )
-
-        if len(src_data) == 7:
-            y_s, _, _, feat_s, imgs_s, lime_s, dom_s = src_data
-            has_lime = True
-        else:
-            y_s, _, _, feat_s, imgs_s, dom_s = src_data
-            lime_s = None
-            has_lime = False
 
         y_t, _, _, feat_t, imgs_t, dom_t = self._get_inference_data(
             model,
             target_loader,
-            return_lime_variant=False,
-            domain_id=1
+            return_lime_variant=use_lime,
+            domain_id=1 if use_lime else None
         )
 
         features = np.concatenate([feat_s, feat_t])
@@ -190,7 +187,7 @@ class BananaVisualizer:
 
         images_tensor = torch.cat([imgs_s, imgs_t])
 
-        if has_lime:
+        if use_lime:
             lime_variants = np.concatenate([lime_s, np.full(len(y_t), -1)])
 
         reducer = umap.UMAP(
@@ -221,6 +218,10 @@ class BananaVisualizer:
                 alpha=0.25
             )
 
+        # =====================================================
+        # Plot representative images
+        # =====================================================
+
         shown_positions = np.array([[1000.0, 1000.0]])
 
         for i in range(len(embedding)):
@@ -246,7 +247,11 @@ class BananaVisualizer:
 
                 ax.add_artist(ab)
 
-        if draw_lime_groups and has_lime:
+        # =====================================================
+        # LIME Structure + Pearson Correlation
+        # =====================================================
+
+        if use_lime:
 
             unique_lime = np.unique(lime_s)
 
@@ -262,23 +267,42 @@ class BananaVisualizer:
                 try:
                     hull = ConvexHull(points)
 
-                    plt.fill(
-                        points[hull.vertices, 0],
-                        points[hull.vertices, 1],
-                        alpha=0.06
-                    )
-
                     for simplex in hull.simplices:
                         plt.plot(
                             points[simplex, 0],
                             points[simplex, 1],
                             linestyle='--',
-                            linewidth=1.5,
-                            alpha=0.6
+                            linewidth=2,
+                            alpha=0.7
                         )
 
                 except Exception:
                     continue
+
+            # -------------------------------------------------
+            # Pearson Correlation (LIME vs UMAP Axes)
+            # -------------------------------------------------
+
+            src_idx = domains == 0
+
+            lime_values = lime_s.astype(float)
+            umap_x = embedding[src_idx, 0]
+            umap_y = embedding[src_idx, 1]
+
+            try:
+                corr_x, p_x = pearsonr(lime_values, umap_x)
+                corr_y, p_y = pearsonr(lime_values, umap_y)
+
+                print("\nPearson Correlation (LIME vs UMAP):")
+                print(f"UMAP-x → r = {corr_x:.4f} | p = {p_x:.4e}")
+                print(f"UMAP-y → r = {corr_y:.4f} | p = {p_y:.4e}")
+
+            except Exception:
+                print("Pearson correlation could not be computed.")
+
+        # =====================================================
+        # Legends
+        # =====================================================
 
         domain_legend = [
             Line2D([0], [0], marker='o', color='w',
@@ -297,7 +321,7 @@ class BananaVisualizer:
 
         ax.legend(handles=domain_legend + class_legend, loc='upper right')
 
-        plt.title("Latent Space Structure (Domain • Class • LIME)")
+        plt.title("Latent Space Structure (Domain • Class" + (" • LIME" if use_lime else "") + ")")
         plt.axis("off")
 
         path = self.output_dir / f"{prefix}_umap_samples.png"
@@ -305,4 +329,5 @@ class BananaVisualizer:
         plt.close()
 
         print(f"Saved UMAP plot to {path}")
+
 

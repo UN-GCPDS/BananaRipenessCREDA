@@ -88,8 +88,9 @@ def run_experiment(config_path: str):
         target_loader=target_loaders['test'], 
         class_names=class_names, 
         prefix="Target_Latent_Space",
+        image_zoom=0.07,
         min_dist_plots=0.15,
-        image_zoom=0.07
+        use_lime=cfg.data.source_lime_variant,
     )
     
     # Save best model weights

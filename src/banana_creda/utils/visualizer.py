@@ -198,7 +198,7 @@ class BananaVisualizer:
         y_t, _, _, feat_t, imgs_t, dom_t = self._get_inference_data(
             model,
             target_loader,
-            return_lime_variant=use_lime,
+            return_lime_variant=False,
             domain_id=1 if use_lime else None
         )
 

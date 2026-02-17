@@ -135,11 +135,12 @@ class BananaTrainer:
                     print(f"Warm-up completed: Domain Alignment Activated | Lambda CREDA: {self.criterion.lambda_creda}")
 
             # Logic for Best Model and Dynamic Lambda
-            if val_acc_tgt > self.best_acc:
-                self.best_acc = val_acc_tgt
-                self.best_model_wts = copy.deepcopy(self.model.state_dict())
-                self.patience_counter = 0
-            else:
+            if self.config.warmup and warmup_done:
+                if val_acc_tgt > self.best_acc:
+                    self.best_acc = val_acc_tgt
+                    self.best_model_wts = copy.deepcopy(self.model.state_dict())
+                    self.patience_counter = 0
+                else:
                 self.patience_counter += 1
 
             # Execute Dynamic Lambda Adjustment if enabled and warm-up is over

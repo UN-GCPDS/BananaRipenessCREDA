@@ -15,7 +15,7 @@ from sklearn.preprocessing import label_binarize
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.lines import Line2D
 
-from scipy.spatial import ConvexHull
+import seaborn as sns
 from scipy.stats import pearsonr
 
 class BananaVisualizer:
@@ -268,37 +268,37 @@ class BananaVisualizer:
 
                 ax.add_artist(ab)
 
-        # =====================================================
-        # LIME Structure + Pearson Correlation
-        # =====================================================
+            # =====================================================
+            # LIME Structure + Pearson Correlation
+            # =====================================================
 
-        if use_lime:
+            if use_lime:
 
-            unique_lime = np.unique(lime_s)
+                unique_lime = np.unique(lime_s)
 
-            for variant in unique_lime:
+                for variant in unique_lime:
 
-                idx = (lime_variants == variant) & (domains == 0)
+                    idx = (lime_variants == variant) & (domains == 0)
 
-                if np.sum(idx) < 4:
-                    continue
+                    if np.sum(idx) < 4:
+                        continue
 
-                points = embedding[idx]
+                    points = embedding[idx]
 
-                try:
-                    hull = ConvexHull(points)
-
-                    for simplex in hull.simplices:
-                        plt.plot(
-                            points[simplex, 0],
-                            points[simplex, 1],
-                            linestyle='--',
-                            linewidth=2,
-                            alpha=0.7
+                    try:
+                        sns.kdeplot(
+                            x=points[:, 0],
+                            y=points[:, 1],
+                            ax=ax,
+                            levels=4,          # Paper-friendly smoothness
+                            linewidths=1.5,
+                            alpha=0.6,
+                            fill=False,         # IMPORTANT → cleaner for papers
+                            color=cmap(int(variant))
                         )
 
-                except Exception:
-                    continue
+                    except Exception:
+                        continue
 
             # -------------------------------------------------
             # Pearson Correlation (LIME vs UMAP Axes)

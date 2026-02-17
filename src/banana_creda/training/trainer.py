@@ -117,6 +117,15 @@ class BananaTrainer:
         for epoch in range(self.config.epochs):
             lr_current = self.optimizer.param_groups[0]['lr']
             print(f"\nEpoch {epoch+1}/{self.config.epochs} | LR: {lr_current:.6f}")
+
+            # Logic for Best Model and Dynamic Lambda
+            if self.config.warmup and warmup_done:
+                if val_acc_tgt > self.best_acc:
+                    self.best_acc = val_acc_tgt
+                    self.best_model_wts = copy.deepcopy(self.model.state_dict())
+                    self.patience_counter = 0
+                else:
+                    self.patience_counter += 1
             
             train_metrics = self.train_epoch()
             formatted_time = self._format_time(train_metrics['epoch_time'])
@@ -133,15 +142,6 @@ class BananaTrainer:
                     self.criterion.lambda_entropy = self.config.lambda_entropy
                     warmup_done = True
                     print(f"Warm-up completed: Domain Alignment Activated | Lambda CREDA: {self.criterion.lambda_creda}")
-
-            # Logic for Best Model and Dynamic Lambda
-            if self.config.warmup and warmup_done:
-                if val_acc_tgt > self.best_acc:
-                    self.best_acc = val_acc_tgt
-                    self.best_model_wts = copy.deepcopy(self.model.state_dict())
-                    self.patience_counter = 0
-                else:
-                self.patience_counter += 1
 
             # Execute Dynamic Lambda Adjustment if enabled and warm-up is over
             if self.dynamic_lambda and warmup_done and self.patience_counter >= self.lambda_patience:

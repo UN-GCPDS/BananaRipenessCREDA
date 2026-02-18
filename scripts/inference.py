@@ -18,8 +18,8 @@ def run_inference(config_path: str, model_path: str):
     data_manager = BananaDataLoader(cfg.data)
     
     # We load both loaders to support the alignment visualization discussed in your research
-    _, _, src_test, class_names = data_manager.get_split_loaders(cfg.data.synth_data_dir, is_source=True)
-    _, _, tgt_test, _ = data_manager.get_split_loaders(cfg.data.orig_data_dir, is_source=False)
+    _, _, src_test, class_names = data_manager.get_split_loaders(cfg.data.synth_data_dir)
+    _, _, tgt_test, _ = data_manager.get_split_loaders(cfg.data.orig_data_dir)
     
     # 3. Model Initialization and Loading Weights
     print(f"Loading pre-trained model from: {model_path}")

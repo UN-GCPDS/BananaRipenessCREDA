@@ -87,7 +87,7 @@ def run_experiment(config_path: str):
         source_loader=source_loaders['test'], 
         target_loader=target_loaders['test'], 
         class_names=class_names, 
-        prefix="Target_Latent_Space",
+        prefix="Latent_Space",
         image_zoom=0.07,
         min_dist_plots=0.15,
         use_lime=cfg.data.source_lime_variant,

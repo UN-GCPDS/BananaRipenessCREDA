@@ -68,8 +68,8 @@ def run_inference(config_path: str, model_path: str):
         target_loader=tgt_test, 
         class_names=class_names, 
         prefix="Latent_Space",
-        image_zoom=0.25,
-        min_dist_plots=1.1,
+        image_zoom=0.15,
+        min_dist_plots=1.9,
         use_lime=False  # Triggers the Convex Hull grouping based on filenames
     )
     

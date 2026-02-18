@@ -268,58 +268,58 @@ class BananaVisualizer:
 
                 ax.add_artist(ab)
 
-            # =====================================================
-            # LIME Structure + Pearson Correlation
-            # =====================================================
+        # =====================================================
+        # LIME Structure + Pearson Correlation
+        # =====================================================
 
-            if use_lime:
+        if use_lime:
 
-                unique_lime = np.unique(lime_s)
+            unique_lime = np.unique(lime_s)
 
-                for variant in unique_lime:
+            for variant in unique_lime:
 
-                    idx = (lime_variants == variant) & (domains == 0)
+                idx = (lime_variants == variant) & (domains == 0)
 
-                    if np.sum(idx) < 4:
-                        continue
+                if np.sum(idx) < 4:
+                    continue
 
-                    points = embedding[idx]
+                points = embedding[idx]
 
-                    try:
-                        sns.kdeplot(
-                            x=points[:, 0],
-                            y=points[:, 1],
-                            ax=ax,
-                            levels=4,          # Paper-friendly smoothness
-                            linewidths=1.5,
-                            alpha=0.6,
-                            fill=False,         # IMPORTANT → cleaner for papers
-                            color=cmap(int(variant))
-                        )
+                try:
+                    sns.kdeplot(
+                        x=points[:, 0],
+                        y=points[:, 1],
+                        ax=ax,
+                        levels=4,          # Paper-friendly smoothness
+                        linewidths=1.5,
+                        alpha=0.6,
+                        fill=False,         # IMPORTANT → cleaner for papers
+                        color=cmap(int(variant))
+                    )
 
-                    except Exception:
-                        continue
+                except Exception:
+                    continue
 
-            # -------------------------------------------------
-            # Pearson Correlation (LIME vs UMAP Axes)
-            # -------------------------------------------------
+        # -------------------------------------------------
+        # Pearson Correlation (LIME vs UMAP Axes)
+        # -------------------------------------------------
 
-            src_idx = domains == 0
+        src_idx = domains == 0
 
-            lime_values = lime_s.astype(float)
-            umap_x = embedding[src_idx, 0]
-            umap_y = embedding[src_idx, 1]
+        lime_values = lime_s.astype(float)
+        umap_x = embedding[src_idx, 0]
+        umap_y = embedding[src_idx, 1]
 
-            try:
-                corr_x, p_x = pearsonr(lime_values, umap_x)
-                corr_y, p_y = pearsonr(lime_values, umap_y)
+        try:
+            corr_x, p_x = pearsonr(lime_values, umap_x)
+            corr_y, p_y = pearsonr(lime_values, umap_y)
 
-                print("\nPearson Correlation (LIME vs UMAP):")
-                print(f"UMAP-x → r = {corr_x:.4f} | p = {p_x:.4e}")
-                print(f"UMAP-y → r = {corr_y:.4f} | p = {p_y:.4e}")
+            print("\nPearson Correlation (LIME vs UMAP):")
+            print(f"UMAP-x → r = {corr_x:.4f} | p = {p_x:.4e}")
+            print(f"UMAP-y → r = {corr_y:.4f} | p = {p_y:.4e}")
 
-            except Exception:
-                print("Pearson correlation could not be computed.")
+        except Exception:
+            print("Pearson correlation could not be computed.")
 
         # =====================================================
         # Legends

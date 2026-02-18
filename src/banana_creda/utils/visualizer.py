@@ -188,19 +188,27 @@ class BananaVisualizer:
         use_lime=False
     ):
 
-        y_s, _, _, feat_s, imgs_s, lime_s, dom_s = self._get_inference_data(
-            model,
-            source_loader,
-            return_lime_variant=use_lime,
-            domain_id= 0 if use_lime else None
-        )
+        data_s = self._get_inference_data(
+                model,
+                source_loader,
+                return_lime_variant=use_lime,
+                domain_id= 0
+            )
+        
+        if use_lime:
+            y_s, _, _, feat_s, imgs_s, lime_s, dom_s = data_s
+        
+        else:
+            y_s, _, _, feat_s, imgs_s, dom_s = data_s
 
-        y_t, _, _, feat_t, imgs_t, dom_t = self._get_inference_data(
+        data_t = self._get_inference_data(
             model,
             target_loader,
             return_lime_variant=False,
-            domain_id=1 if use_lime else None
+            domain_id=1
         )
+
+        y_t, _, _, feat_t, imgs_t, dom_t = data_t
 
         features = np.concatenate([feat_s, feat_t])
         labels = np.concatenate([y_s, y_t])
@@ -300,26 +308,26 @@ class BananaVisualizer:
                 except Exception:
                     continue
 
-        # -------------------------------------------------
-        # Pearson Correlation (LIME vs UMAP Axes)
-        # -------------------------------------------------
+            # -------------------------------------------------
+            # Pearson Correlation (LIME vs UMAP Axes)
+            # -------------------------------------------------
 
-        src_idx = domains == 0
+            src_idx = domains == 0
 
-        lime_values = lime_s.astype(float)
-        umap_x = embedding[src_idx, 0]
-        umap_y = embedding[src_idx, 1]
+            lime_values = lime_s.astype(float)
+            umap_x = embedding[src_idx, 0]
+            umap_y = embedding[src_idx, 1]
 
-        try:
-            corr_x, p_x = pearsonr(lime_values, umap_x)
-            corr_y, p_y = pearsonr(lime_values, umap_y)
+            try:
+                corr_x, p_x = pearsonr(lime_values, umap_x)
+                corr_y, p_y = pearsonr(lime_values, umap_y)
 
-            print("\nPearson Correlation (LIME vs UMAP):")
-            print(f"UMAP-x → r = {corr_x:.4f} | p = {p_x:.4e}")
-            print(f"UMAP-y → r = {corr_y:.4f} | p = {p_y:.4e}")
+                print("\nPearson Correlation (LIME vs UMAP):")
+                print(f"UMAP-x → r = {corr_x:.4f} | p = {p_x:.4e}")
+                print(f"UMAP-y → r = {corr_y:.4f} | p = {p_y:.4e}")
 
-        except Exception:
-            print("Pearson correlation could not be computed.")
+            except Exception:
+                print("Pearson correlation could not be computed.")
 
         # =====================================================
         # Legends

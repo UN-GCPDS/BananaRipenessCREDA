@@ -2,69 +2,83 @@ import torch
 import argparse
 from pathlib import Path
 
-# Imports del paquete
+# Imports from the modular package
 from banana_creda.config import ExperimentConfig
-from banana_creda.models.backbones import BananaModel
 from banana_creda.data.loader import BananaDataLoader
+from banana_creda.models.backbones import BananaModel
 from banana_creda.utils.visualizer import BananaVisualizer
 from banana_creda.utils.metrics import MetricTracker
 
-def main(config_path: str, model_path: str):
-    # 1. Load Configuration and Device
+def run_inference(config_path: str, model_path: str):
+    # 1. Load Configuration and Setup Environment
     cfg = ExperimentConfig.from_yaml(config_path)
     device = torch.device(cfg.training.device if torch.cuda.is_available() else "cpu")
     
-    # 2. Load Data (Only Target Test for real inference)
+    # 2. Data Setup (Prioritizing Target Test data for evaluation)
     data_manager = BananaDataLoader(cfg.data)
-    # Nota: get_split_loaders devuelve (train, val, test, names)
-    _, _, tgt_test, class_names = data_manager.get_split_loaders(cfg.data.orig_data_dir)
     
-    # 3. Load Model with Trained Weights
-    print(f"Cargando modelo desde: {model_path}")
+    # We load both loaders to support the alignment visualization discussed in your research
+    _, _, src_test, class_names = data_manager.get_split_loaders(cfg.data.synth_data_dir, is_source=True)
+    _, _, tgt_test, _ = data_manager.get_split_loaders(cfg.data.orig_data_dir, is_source=False)
+    
+    # 3. Model Initialization and Loading Weights
+    print(f"Loading pre-trained model from: {model_path}")
     model = BananaModel(cfg.model).to(device)
-    model.load_state_dict(torch.load(model_path, map_location=device))
+    
+    # Load state dict with map_location for CPU/GPU flexibility
+    state_dict = torch.load(model_path, map_location=device)
+    model.load_state_dict(state_dict)
     model.eval()
+
+    # 4. Final Evaluation and Scientific Reports
+    output_dir = Path("outputs/inference_results")
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    # 4. Initialize Visualizer
-    output_dir = "outputs/inference_results"
-    viz = BananaVisualizer(device=device, output_dir=output_dir)
+    viz = BananaVisualizer(device=device, output_dir=str(output_dir))
     
-    print("Ejecutando inferencia y generando visualizaciones...")
+    print("\nExecuting evaluation on Target Test Set...")
+
+    # Get raw inference data (y_true, y_pred, y_probs, features, images, domains, lightings)
+    # Using the extended signature to capture LIME variants and domain info
+    inference_results = viz._get_inference_data(model, tgt_test)
+    y_true_np, y_pred_np = inference_results[0], inference_results[1]
+
+    # Compute and print Full Scientific Report (Precision, Recall, F1, Support)
+    metrics = MetricTracker.compute_full_metrics(
+        torch.from_numpy(y_pred_np), 
+        torch.from_numpy(y_true_np), 
+        len(class_names), 
+        device
+    )
+    MetricTracker.print_full_report("Inference Run: Target Test Set", metrics, class_names)
     
-    # 5. Generate Visualizations
-    viz.plot_confusion_matrix(model, tgt_test, class_names, "Inference_Run")
-    viz.plot_roc_curve(model, tgt_test, class_names, "Inference_Run")
+    print("\nGenerating Advanced Visualizations...")
     
-    # Qualitative analysis with images in the latent space
+    # 1. Confusion Matrix
+    viz.plot_confusion_matrix(model, tgt_test, class_names, "Inference_Confusion_Matrix")
+
+    # 2. ROC Curve
+    viz.plot_roc_curve(model, tgt_test, class_names, "Inference_ROC")
+    
+    # 3. Qualitative Latent Space with LIME Lassos
+    # This reflects your requirement to group images by lighting variation (LIME_01 to LIME_07)
     viz.plot_umap_with_images(
         model=model, 
-        loader=tgt_test, 
+        source_loader=src_test, 
+        target_loader=tgt_test, 
         class_names=class_names, 
-        prefix="Inference_Run_Samples"
+        prefix="Inference_Alignment_Lasso",
+        image_zoom=0.25,
+        min_dist_plots=0.9,
+        use_lime=False  # Triggers the Convex Hull grouping based on filenames
     )
     
-    # 6. Calculate Full Metrics (The report you requested)
-    print("\nCalculating detailed statistical metrics...")
-    
-    # Extract the necessary data using the visualizer helper
-    y_true, y_pred, _, _, _ = viz._get_inference_data(model, tgt_test)
-    
-    # Convert to tensors for the tracker
-    metrics = MetricTracker.compute_full_metrics(
-        preds=torch.from_numpy(y_pred),
-        labels=torch.from_numpy(y_true),
-        num_classes=len(class_names),
-        device=device
-    )
-    
-    # Print the scientific report
-    MetricTracker.print_full_report("Target Domain (Original) INFERENCE", metrics, class_names)
-    
-    print(f"\nInference completed. Files saved to: {output_dir}")
+    print(f"\nInference completed successfully. Results saved in: {output_dir}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Inference script for Banana-CREDA")
-    parser.add_argument("--config", type=str, required=True, help="Path to config.yaml")
-    parser.add_argument("--model", type=str, required=True, help="Path to model_final.pth")
+    parser = argparse.ArgumentParser(description="Banana-CREDA Inference Script")
+    parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file")
+    parser.add_argument("--model", type=str, required=True, help="Path to the trained .pth model file")
+    
     args = parser.parse_args()
-    main(args.config, args.model)
+    run_inference(args.config, args.model)

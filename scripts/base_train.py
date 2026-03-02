@@ -62,9 +62,7 @@ def run_baseline_experiment(config_path: str) -> None:
     # Get raw inference data from the source test set
     y_true_np, y_pred_np, y_probs_np, _, _ = viz._get_inference_data(
         trained_model, 
-        src_test, 
-        return_lime_variant=False, 
-        domain_id=0
+        src_test
     ) 
 
     metrics = MetricTracker.compute_full_metrics(

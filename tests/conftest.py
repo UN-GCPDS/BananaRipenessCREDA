@@ -5,7 +5,7 @@ from banana_creda.config import ExperimentConfig
 @pytest.fixture
 def mock_config():
     """Returns a minimal configuration for tests."""
-    return ExperimentConfig.from_yaml("configs/resnet_experiment.yaml")
+    return ExperimentConfig.from_yaml("configs/resnet_experiment_1.yaml")
 
 @pytest.fixture
 def sample_batch():

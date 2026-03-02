@@ -96,7 +96,7 @@ def run_experiment(config_path: str):
         class_names=class_names, 
         prefix="Latent Space",
         image_zoom=0.07,
-        min_dist_plots=0.15,
+        min_dist_plots=0.45,
         use_lime=cfg.data.use_lime_on_target, # <-- Pasamos el flag correcto al visualizador
     )
     

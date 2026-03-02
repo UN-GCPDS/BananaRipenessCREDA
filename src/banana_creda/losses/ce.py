@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch.nn.functional as F
 
 class CELoss(nn.Module):
     """
@@ -9,7 +10,6 @@ class CELoss(nn.Module):
         super().__init__()
         # Config y num_classes se reciben para mantener la compatibilidad 
         # de la firma con tu inicialización anterior, aunque no se usen.
-        self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, logits, labels):
-        return self.criterion(logits, labels)
+        return F.cross_entropy(logits, labels)

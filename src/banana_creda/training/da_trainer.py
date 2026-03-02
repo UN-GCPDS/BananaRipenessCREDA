@@ -163,7 +163,7 @@ class BananaTrainer:
                 p = (epoch + 1 - warmup_end_epoch) / remaining_epochs if remaining_epochs > 0 else 1.0
                 
                 p = max(0.0, min(1.0, p))
-                gamma = 5.0
+                gamma = 2.0
                 alpha = 2.0 / (1.0 + math.exp(-gamma * p)) - 1.0
                 
                 self.criterion.lambda_creda = self.config.lambda_creda * alpha

@@ -1,12 +1,12 @@
 data:
-  orig_data_dir: "/kaggle/input/bananaripeness/Original"
-  synth_data_dir: "/kaggle/input/bananaripeness/Synthetic"
+  source_data_dir: "/kaggle/input/datasets/lucasiturriago/bananaripeness/Original"
+  target_data_dir: "/kaggle/input/datasets/lucasiturriago/bananaripeness/Low_Variation"
   batch_size: 32
   img_size: 224
   num_workers: 4
   imagenet_mean: [0.485, 0.456, 0.406]
   imagenet_std: [0.229, 0.224, 0.225]
-  source_lime_variant: True
+  use_lime_on_target: True
 
 model:
   num_classes: 4
@@ -20,12 +20,7 @@ training:
   warmup: true
   warmup_epochs: 5
   warmup_threshold: 0.9
-  lambda_creda: 0.3
-  lambda_entropy: 0.0
-  dynamic_lambda: true
-  lambda_patience: 3
-  lambda_up_factor: 1.2
-  lambda_down_factor: 0.8
+  lambda_creda: 0
   use_uncertainty: true
   sigma: "auto"
   use_amp: true

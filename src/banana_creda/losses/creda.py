@@ -20,7 +20,6 @@ class CREDALoss(nn.Module):
         self.eps = 1e-8
         # Constant for log2
         self.lambda_creda = config.lambda_creda
-        self.lambda_entropy = config.lambda_entropy
         self.register_buffer("log2", torch.log(torch.tensor(2.0)))
 
     def _compute_sigma(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
@@ -58,11 +57,10 @@ class CREDALoss(nn.Module):
         # 1. Supervised Classification Loss (Source)
         loss_cls = F.cross_entropy(logits_s, labels_s)
 
-        # 2. Entropy Minimization (Target) - We use Shannon for standard regularization
+        # Probabilities needed for pseudo-labels and uncertainty weighting
         probs_t = F.softmax(logits_t, dim=1)
-        loss_ent = -torch.mean(torch.sum(probs_t * torch.log(probs_t + self.eps), dim=1))
 
-        # 3. CREDA Alignment
+        # 2. CREDA Alignment
         loss_creda = torch.tensor(0.0, device=features_s.device)
         pseudo_labels_t = torch.argmax(probs_t.detach(), dim=1)
         
@@ -121,11 +119,10 @@ class CREDALoss(nn.Module):
             loss_creda = creda_accum / valid_classes
 
         # Final combination with configuration weights
-        total_loss = loss_cls + (self.lambda_creda * loss_creda) + (self.lambda_entropy * loss_ent)
+        total_loss = loss_cls + (self.lambda_creda * loss_creda)
         
         return total_loss, {
             "total_loss": total_loss.item(),
             "loss_cls": loss_cls.item(),
             "loss_creda": loss_creda.item(),
-            "loss_ent": loss_ent.item(),
         }

@@ -188,28 +188,35 @@ class BananaVisualizer:
         use_lime=False
     ):
 
+        # =====================================================
+        # SOURCE: Ahora son los datos NORMALES (sin LIME)
+        # =====================================================
         data_s = self._get_inference_data(
                 model,
                 source_loader,
-                return_lime_variant=use_lime,
+                return_lime_variant=False, # <-- Cambiado a False
                 domain_id= 0
             )
         
-        if use_lime:
-            y_s, _, _, feat_s, imgs_s, lime_s, dom_s = data_s
-        
-        else:
-            y_s, _, _, feat_s, imgs_s, dom_s = data_s
+        # Como Source no tiene LIME, siempre desempaquetamos 6 elementos
+        y_s, _, _, feat_s, imgs_s, dom_s = data_s
 
+        # =====================================================
+        # TARGET: Ahora son los datos con VARIACIÓN LUMÍNICA (LIME)
+        # =====================================================
         data_t = self._get_inference_data(
             model,
             target_loader,
-            return_lime_variant=False,
+            return_lime_variant=use_lime, # <-- Ahora Target usa LIME
             domain_id=1
         )
 
-        y_t, _, _, feat_t, imgs_t, dom_t = data_t
+        if use_lime:
+            y_t, _, _, feat_t, imgs_t, lime_t, dom_t = data_t # <-- Extraemos lime_t
+        else:
+            y_t, _, _, feat_t, imgs_t, dom_t = data_t
 
+        # Concatenaciones
         features = np.concatenate([feat_s, feat_t])
         labels = np.concatenate([y_s, y_t])
         domains = np.concatenate([dom_s, dom_t])
@@ -217,8 +224,10 @@ class BananaVisualizer:
         images_tensor = torch.cat([imgs_s, imgs_t])
 
         if use_lime:
-            lime_variants = np.concatenate([lime_s, np.full(len(y_t), -1)])
+            # Rellenamos con -1 el Source y ponemos los valores reales en el Target
+            lime_variants = np.concatenate([np.full(len(y_s), -1), lime_t])
 
+        # Reducción de dimensionalidad
         reducer = umap.UMAP(
             n_neighbors=30,
             min_dist=0.3,
@@ -250,7 +259,6 @@ class BananaVisualizer:
         # =====================================================
         # Plot representative images
         # =====================================================
-
         shown_positions = np.array([[1000.0, 1000.0]])
 
         for i in range(len(embedding)):
@@ -279,50 +287,23 @@ class BananaVisualizer:
         # =====================================================
         # LIME Structure + Pearson Correlation
         # =====================================================
-
         if use_lime:
-
-            unique_lime = np.unique(lime_s)
-
-            for variant in unique_lime:
-
-                idx = (lime_variants == variant) & (domains == 0)
-
-                if np.sum(idx) < 4:
-                    continue
-
-                points = embedding[idx]
-
-                try:
-                    sns.kdeplot(
-                        x=points[:, 0],
-                        y=points[:, 1],
-                        ax=ax,
-                        levels=4,          # Paper-friendly smoothness
-                        linewidths=1.5,
-                        alpha=0.6,
-                        fill=False,         # IMPORTANT → cleaner for papers
-                        color=cmap(int(variant))
-                    )
-
-                except Exception:
-                    continue
 
             # -------------------------------------------------
             # Pearson Correlation (LIME vs UMAP Axes)
             # -------------------------------------------------
+            # Ahora calculamos la correlación apuntando al dominio TARGET (1)
+            tgt_idx = domains == 1 
 
-            src_idx = domains == 0
-
-            lime_values = lime_s.astype(float)
-            umap_x = embedding[src_idx, 0]
-            umap_y = embedding[src_idx, 1]
+            lime_values = lime_t.astype(float) # <-- Usamos lime_t
+            umap_x = embedding[tgt_idx, 0]
+            umap_y = embedding[tgt_idx, 1]
 
             try:
                 corr_x, p_x = pearsonr(lime_values, umap_x)
                 corr_y, p_y = pearsonr(lime_values, umap_y)
 
-                print("\nPearson Correlation (LIME vs UMAP):")
+                print("\nPearson Correlation (LIME vs UMAP for Target Domain):")
                 print(f"UMAP-x → r = {corr_x:.4f} | p = {p_x:.4e}")
                 print(f"UMAP-y → r = {corr_y:.4f} | p = {p_y:.4e}")
 
@@ -332,12 +313,11 @@ class BananaVisualizer:
         # =====================================================
         # Legends
         # =====================================================
-
         domain_legend = [
             Line2D([0], [0], marker='o', color='w',
-                label='Source', markerfacecolor='gray', markersize=10),
+                label='Source (Normal)', markerfacecolor='gray', markersize=10),
             Line2D([0], [0], marker='^', color='w',
-                label='Target', markerfacecolor='gray', markersize=10)
+                label='Target (LIME Vars)', markerfacecolor='gray', markersize=10)
         ]
 
         class_legend = [

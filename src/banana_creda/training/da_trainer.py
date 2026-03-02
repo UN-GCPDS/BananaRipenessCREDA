@@ -1,9 +1,13 @@
 import torch
 import time
 import copy
+import math
+from itertools import cycle
 from collections import defaultdict
 from torch.amp import autocast, GradScaler
-from typing import Dict, Any, List
+from typing import Dict, List, Optional
+from tqdm import tqdm # <-- Importamos tqdm
+
 from banana_creda.utils.metrics import MetricTracker
 from banana_creda.config import TrainConfig
 
@@ -23,19 +27,10 @@ class BananaTrainer:
         
         # Warm-up logic initialization
         self.criterion.lambda_creda = 0.0 if config.warmup else config.lambda_creda
-        self.criterion.lambda_entropy = 0.0 if config.warmup else config.lambda_entropy
-        
-        # Adaptive Lambda Logic Config
-        self.dynamic_lambda = config.dynamic_lambda
-        self.lambda_patience = config.lambda_patience
-        self.lambda_up_factor = config.lambda_up_factor   # Factor to increase lambda
-        self.lambda_down_factor = config.lambda_down_factor # Factor to decrease lambda
-        self.patience_counter = 0
         
         if config.warmup:
             print(f"Warm-up enabled (Threshold: {config.warmup_threshold})")
             
-        self.history = defaultdict(list)
         self.best_acc = 0.0
         self.best_model_wts = copy.deepcopy(model.state_dict())
 
@@ -49,7 +44,6 @@ class BananaTrainer:
         running_losses = defaultdict(float)
         total_samples = 0
         
-        from itertools import cycle 
         len_s, len_t = len(self.source_loaders['train']), len(self.target_loaders['train'])
         num_batches = max(len_s, len_t)
         
@@ -57,7 +51,13 @@ class BananaTrainer:
         tgt_iter = cycle(self.target_loaders['train']) if len_s >= len_t else iter(self.target_loaders['train'])
 
         epoch_start = time.time()
-        for _ in range(num_batches):
+        
+        # ---------------------------------------------------------
+        # AQUÍ INICIA tqdm PARA EL BUCLE DE ENTRENAMIENTO
+        # ---------------------------------------------------------
+        pbar = tqdm(range(num_batches), desc="Training", leave=False)
+        
+        for _ in pbar:
             src_batch = next(src_iter)
             img_s, lbl_s = src_batch[:2]
 
@@ -83,21 +83,30 @@ class BananaTrainer:
             for k, v in loss_dict.items():
                 running_losses[k] += v * batch_size
 
+            # Actualizar barra de progreso con el loss total actual
+            current_loss = loss_dict.get('total_loss', loss.item())
+            pbar.set_postfix({'loss': f"{current_loss:.4f}"})
+
         metrics = {k: v / total_samples for k, v in running_losses.items()}
         metrics['epoch_time'] = time.time() - epoch_start
         return metrics
 
-    def evaluate(self, loader, class_names, prefix="Val"):
+    @torch.no_grad()
+    def evaluate(self, loader, class_names: List[str], prefix: str = "Val") -> float:
         self.model.eval()
         all_preds, all_labels = [], []
         
-        with torch.no_grad():
-            for batch in loader:
-                imgs, labels = batch[:2]
-                imgs, labels = imgs.to(self.device), labels.to(self.device)
-                logits = self.model(imgs, mode='class')
-                all_preds.append(torch.max(logits, 1)[1])
-                all_labels.append(labels)
+        # ---------------------------------------------------------
+        # AQUÍ INICIA tqdm PARA EL BUCLE DE EVALUACIÓN
+        # ---------------------------------------------------------
+        pbar = tqdm(loader, desc=f"Evaluating ({prefix})", leave=False)
+        
+        for batch in pbar:
+            imgs, labels = batch[:2]
+            imgs, labels = imgs.to(self.device), labels.to(self.device)
+            logits = self.model(imgs, mode='class')
+            all_preds.append(torch.max(logits, 1)[1])
+            all_labels.append(labels)
 
         overall_acc, per_class_acc = MetricTracker.compute_accuracy(
             torch.cat(all_preds), torch.cat(all_labels), len(class_names)
@@ -106,9 +115,10 @@ class BananaTrainer:
         MetricTracker.print_summary(prefix, overall_acc, per_class_acc, class_names)
         return overall_acc
 
-    def fit(self, scheduler=None):
+    def fit(self, scheduler=None) -> torch.nn.Module:
         src_classes = self.source_loaders['train'].dataset.classes
         warmup_done = not self.config.warmup
+        warmup_end_epoch = 0 if warmup_done else -1
         total_train_start = time.time()
 
         print(f"Initial Lambda CREDA loss value: {self.criterion.lambda_creda}")
@@ -117,50 +127,50 @@ class BananaTrainer:
         for epoch in range(self.config.epochs):
             lr_current = self.optimizer.param_groups[0]['lr']
             print(f"\nEpoch {epoch+1}/{self.config.epochs} | LR: {lr_current:.6f}")
+            print("-" * 40)
 
-            # Logic for Best Model and Dynamic Lambda
-            if self.config.warmup and warmup_done:
-                if val_acc_tgt > self.best_acc:
-                    self.best_acc = val_acc_tgt
-                    self.best_model_wts = copy.deepcopy(self.model.state_dict())
-                    self.patience_counter = 0
-                else:
-                    self.patience_counter += 1
-            
+            # 1. Train
             train_metrics = self.train_epoch()
             formatted_time = self._format_time(train_metrics['epoch_time'])
             
-            print(f"[Train] Time: {formatted_time} | Loss: {train_metrics['total_loss']:.4f} | Cls loss: {train_metrics['loss_cls']:.4f} | CREDA loss: {train_metrics['loss_creda']:.4f}")
+            # Use .get() safely in case some losses are not returned by loss_dict
+            loss_total = train_metrics.get('total_loss', 0.0)
+            loss_cls = train_metrics.get('loss_cls', 0.0)
+            loss_creda = train_metrics.get('loss_creda', 0.0)
+            
+            print(f"[Train] Time: {formatted_time} | Loss: {loss_total:.4f} | Cls loss: {loss_cls:.4f} | CREDA loss: {loss_creda:.4f}")
 
-            val_acc_src = self.evaluate(self.source_loaders['validation'], src_classes, "Src Val")
+            # 2. Evaluate
+            _ = self.evaluate(self.source_loaders['validation'], src_classes, "Src Val")
             val_acc_tgt = self.evaluate(self.target_loaders['validation'], src_classes, "Tgt Val")
 
-            # Warm-up Logic
+            # 3. Checkpoint Logic
+            if (not self.config.warmup or warmup_done) and val_acc_tgt > self.best_acc:
+                self.best_acc = val_acc_tgt
+                self.best_model_wts = copy.deepcopy(self.model.state_dict())
+                print(f"New best model found! (Target Val Acc: {self.best_acc:.4f})")
+
+            # 4. Warm-up Logic
             if self.config.warmup and not warmup_done:
                 if epoch >= self.config.warmup_epochs or val_acc_tgt >= self.config.warmup_threshold: 
-                    self.criterion.lambda_creda = self.config.lambda_creda
-                    self.criterion.lambda_entropy = self.config.lambda_entropy
                     warmup_done = True
-                    val_acc_tgt = 0.0
-                    print(f"Warm-up completed: Domain Alignment Activated | Lambda CREDA: {self.criterion.lambda_creda}")
+                    warmup_end_epoch = epoch
+                    print(f"\n Warm-up completed at epoch {epoch+1}: Domain Alignment Activated.")
 
-            # Execute Dynamic Lambda Adjustment if enabled and warm-up is over
-            if self.dynamic_lambda and warmup_done and self.patience_counter >= self.lambda_patience:
-                # Heuristic: If there is still a significant gap, increase lambda. 
-                # If target is stalling but source is also dropping, decrease lambda (negative transfer).
-                if (val_acc_src - val_acc_tgt) > 0.15:
-                    self.criterion.lambda_creda *= self.lambda_up_factor
-                    self.criterion.lambda_entropy *= self.lambda_up_factor
-                    action = "Increasing"
-                else:
-                    self.criterion.lambda_creda *= self.lambda_down_factor
-                    self.criterion.lambda_entropy *= self.lambda_down_factor
-                    action = "Decreasing"
+            # 5. Exponential Lambda Adjustment
+            if warmup_done:
+                remaining_epochs = self.config.epochs - warmup_end_epoch
+                p = (epoch + 1 - warmup_end_epoch) / remaining_epochs if remaining_epochs > 0 else 1.0
                 
-                print(f"Patience reached. {action} lambdas. New CREDA lambda: {self.criterion.lambda_creda:.4f}")
-                self.patience_counter = 0
+                p = max(0.0, min(1.0, p))
+                gamma = 5.0
+                alpha = 2.0 / (1.0 + math.exp(-gamma * p)) - 1.0
+                
+                self.criterion.lambda_creda = self.config.lambda_creda * alpha
+                print(f"New CREDA lambda = {self.criterion.lambda_creda:.4f}")
 
-            if scheduler: scheduler.step()
+            if scheduler is not None: 
+                scheduler.step()
 
         total_time = time.time() - total_train_start
         print(f"\n{' TRAINING COMPLETE ':=^50}")
@@ -168,5 +178,6 @@ class BananaTrainer:
         print(f"Best Target Accuracy: {self.best_acc:.4f}")
         print("="*50)
 
+        # Restore best weights before returning
         self.model.load_state_dict(self.best_model_wts)
         return self.model

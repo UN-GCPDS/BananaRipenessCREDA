@@ -1,6 +1,6 @@
 data:
   source_data_dir: "/kaggle/input/datasets/lucasiturriago/bananaripeness/Original"
-  target_data_dir: "/kaggle/input/datasets/lucasiturriago/bananaripeness/Low_Variation"
+  target_data_dir: "/kaggle/input/datasets/lucasiturriago/bananaripeness/Medium_Variation"
   batch_size: 32
   img_size: 224
   num_workers: 4
@@ -11,7 +11,7 @@ data:
 model:
   num_classes: 4
   pretrained: true
-  backbone: "efficientnet"
+  backbone: "resnet"
 
 training:
   epochs: 20
@@ -28,6 +28,6 @@ training:
   seed: 42
 
 experiment:
-  name: "efficientnet_experiment"
-  version: 1
-  output_dir: "outputs/efficientnet/experiment_1"
+  name: "resnet_experiment"
+  version: 3
+  output_dir: "outputs/resnet/experiment_3"

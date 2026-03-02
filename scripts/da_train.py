@@ -9,7 +9,7 @@ from banana_creda.config import ExperimentConfig
 from banana_creda.data.loader import BananaDataLoader
 from banana_creda.models.backbones import BananaModel
 from banana_creda.losses.creda import CREDALoss
-from banana_creda.training.trainer import BananaTrainer
+from banana_creda.training.da_trainer import BananaTrainer
 from banana_creda.utils.visualizer import BananaVisualizer
 from banana_creda.utils.reproducibility import set_seed
 from banana_creda.utils.metrics import MetricTracker
@@ -23,10 +23,17 @@ def run_experiment(config_path: str):
     if cfg.training.seed is not None:
         set_seed(cfg.training.seed)
     
-    # 2. Data Setup (Source: Synthetic / Target: Original)
+    # 2. Data Setup (Source: Normal / Target: Varying Illumination)
     data_manager = BananaDataLoader(cfg.data)
-    src_train, src_val, src_test, class_names = data_manager.get_split_loaders(cfg.data.synth_data_dir, cfg.data.source_lime_variant)
-    tgt_train, tgt_val, tgt_test, _ = data_manager.get_split_loaders(cfg.data.orig_data_dir)
+    
+    # IMPORTANTE: Ahora el Source NO recibe parámetro LIME
+    src_train, src_val, src_test, class_names = data_manager.get_split_loaders(cfg.data.source_data_dir)
+    
+    # IMPORTANTE: Ahora el Target SÍ recibe el parámetro LIME
+    tgt_train, tgt_val, tgt_test, _ = data_manager.get_split_loaders(
+        cfg.data.target_data_dir, 
+        cfg.data.use_lime_on_target # <-- Asegúrate de cambiar este nombre en tu config.yaml
+    )
     
     source_loaders = {'train': src_train, 'validation': src_val, 'test': src_test}
     target_loaders = {'train': tgt_train, 'validation': tgt_val, 'test': tgt_test}
@@ -73,13 +80,13 @@ def run_experiment(config_path: str):
     print("\n Generating Visualizations...")
     
     # Quantitative: Confusion Matrix
-    viz.plot_confusion_matrix(trained_model, target_loaders['test'], class_names, "Target_Test")
+    viz.plot_confusion_matrix(trained_model, target_loaders['test'], class_names, "Target Test")
 
     # Quantitative: ROC Curve and AUC
-    viz.plot_roc_curve(trained_model, target_loaders['test'], class_names, "Target_Test")
+    viz.plot_roc_curve(trained_model, target_loaders['test'], class_names, "Target Test")
     
     # Domain Alignment: UMAP (Source vs Target)
-    viz.plot_umap(trained_model, source_loaders['test'], target_loaders['test'], "Domain_Alignment")
+    viz.plot_umap(trained_model, source_loaders['test'], target_loaders['test'], "Domain Alignment")
     
     # Qualitative: Latent Space with Real Images
     viz.plot_umap_with_images(
@@ -87,10 +94,10 @@ def run_experiment(config_path: str):
         source_loader=source_loaders['test'], 
         target_loader=target_loaders['test'], 
         class_names=class_names, 
-        prefix="Latent_Space",
+        prefix="Latent Space",
         image_zoom=0.07,
         min_dist_plots=0.15,
-        use_lime=cfg.data.source_lime_variant,
+        use_lime=cfg.data.use_lime_on_target, # <-- Pasamos el flag correcto al visualizador
     )
     
     # Save best model weights

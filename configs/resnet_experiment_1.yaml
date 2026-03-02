@@ -11,7 +11,7 @@ data:
 model:
   num_classes: 4
   pretrained: true
-  backbone: "efficientnet"
+  backbone: "resnet"
 
 training:
   epochs: 20
@@ -28,6 +28,6 @@ training:
   seed: 42
 
 experiment:
-  name: "efficientnet_experiment"
+  name: "resnet_experiment"
   version: 1
-  output_dir: "outputs/efficientnet/experiment_1"
+  output_dir: "outputs/resnet/experiment_1"

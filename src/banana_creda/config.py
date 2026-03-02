@@ -5,14 +5,14 @@ from pathlib import Path
 
 class DataConfig(BaseModel):
     """Configuration for data loading and transformation."""
-    orig_data_dir: str
-    synth_data_dir: str
+    source_data_dir: str
+    target_data_dir: str
     batch_size: int = Field(default=32, gt=0)
     img_size: int = Field(default=224, gt=0)
     num_workers: int = Field(default=4)
     imagenet_mean: List[float] = [0.485, 0.456, 0.406]
     imagenet_std: List[float] = [0.229, 0.224, 0.225]
-    source_lime_variant: bool = False
+    use_lime_on_target: bool = False
 
 class ModelConfig(BaseModel):
     """Configuration for model architecture."""  
@@ -33,15 +33,7 @@ class TrainConfig(BaseModel):
     
     # CREDA static hyperparameters
     lambda_creda: float = Field(default=1.0, ge=0.0)
-    lambda_entropy: float = Field(default=0.0, ge=0.0)
     
-    # --- Dynamic Lambda Logic (OnPlateau) ---
-    dynamic_lambda: bool = False
-    lambda_patience: int = Field(default=3, ge=1)
-    lambda_up_factor: float = Field(default=1.2, gt=1.0)
-    lambda_down_factor: float = Field(default=0.8, lt=1.0)
-    # ----------------------------------------
-
     use_uncertainty: bool = True
     sigma: Union[float, str] = "auto"
     use_amp: bool = True

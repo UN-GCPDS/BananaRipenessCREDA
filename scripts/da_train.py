@@ -59,8 +59,9 @@ def run_experiment(config_path: str):
     trained_model = trainer.fit(scheduler=scheduler)
 
     # 5. Final Evaluation and Scientific Reports
-    output_path = cfg.experiment.output_dir
-    viz = BananaVisualizer(device=device, output_dir=output_path)
+    output_path = Path(cfg.experiment.output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    viz = BananaVisualizer(device=device, output_dir=str(output_path))
     
     print("\n Generating Final Statistical Reports...")
 
@@ -80,13 +81,13 @@ def run_experiment(config_path: str):
     print("\n Generating Visualizations...")
     
     # Quantitative: Confusion Matrix
-    viz.plot_confusion_matrix(trained_model, target_loaders['test'], class_names, "Target Test")
+    viz.plot_confusion_matrix(trained_model, target_loaders['test'], class_names, "Target Test - Confusion Matrix")
 
     # Quantitative: ROC Curve and AUC
-    viz.plot_roc_curve(trained_model, target_loaders['test'], class_names, "Target Test")
+    viz.plot_roc_curve(trained_model, target_loaders['test'], class_names, "Target Test - ROC Curve")
     
     # Domain Alignment: UMAP (Source vs Target)
-    viz.plot_umap(trained_model, source_loaders['test'], target_loaders['test'], "Domain Alignment")
+    viz.plot_umap(trained_model, source_loaders['test'], target_loaders['test'], "Target Test - Domain Alignment")
     
     # Qualitative: Latent Space with Real Images
     viz.plot_umap_with_images(
@@ -94,7 +95,7 @@ def run_experiment(config_path: str):
         source_loader=source_loaders['test'], 
         target_loader=target_loaders['test'], 
         class_names=class_names, 
-        prefix="Latent Space",
+        prefix="Target Test - Latent Space",
         image_zoom=0.07,
         min_dist_plots=0.45,
         use_lime=cfg.data.use_lime_on_target, # <-- Pasamos el flag correcto al visualizador

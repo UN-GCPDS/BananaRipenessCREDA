@@ -17,9 +17,17 @@ def run_inference(config_path: str, model_path: str):
     # 2. Data Setup (Prioritizing Target Test data for evaluation)
     data_manager = BananaDataLoader(cfg.data)
     
-    # We load both loaders to support the alignment visualization discussed in your research
-    _, _, src_test, class_names = data_manager.get_split_loaders(cfg.data.synth_data_dir)
-    _, _, tgt_test, _ = data_manager.get_split_loaders(cfg.data.orig_data_dir)
+    # IMPORTANTE: Ahora el Source NO recibe parámetro LIME
+    src_train, src_val, src_test, class_names = data_manager.get_split_loaders(cfg.data.source_data_dir)
+    
+    # IMPORTANTE: Ahora el Target SÍ recibe el parámetro LIME
+    tgt_train, tgt_val, tgt_test, _ = data_manager.get_split_loaders(
+        cfg.data.target_data_dir, 
+        cfg.data.use_lime_on_target # <-- Asegúrate de cambiar este nombre en tu config.yaml
+    )
+
+    source_loaders = {'train': src_train, 'validation': src_val, 'test': src_test}
+    target_loaders = {'train': tgt_train, 'validation': tgt_val, 'test': tgt_test}
     
     # 3. Model Initialization and Loading Weights
     print(f"Loading pre-trained model from: {model_path}")
@@ -38,10 +46,7 @@ def run_inference(config_path: str, model_path: str):
     
     print("\nExecuting evaluation on Target Test Set...")
 
-    # Get raw inference data (y_true, y_pred, y_probs, features, images, domains, lightings)
-    # Using the extended signature to capture LIME variants and domain info
-    inference_results = viz._get_inference_data(model, tgt_test)
-    y_true_np, y_pred_np = inference_results[0], inference_results[1]
+    y_true_np, y_pred_np, y_probs_np, _, _ = viz._get_inference_data(model, target_loaders['test'])
 
     # Compute and print Full Scientific Report (Precision, Recall, F1, Support)
     metrics = MetricTracker.compute_full_metrics(
@@ -50,27 +55,31 @@ def run_inference(config_path: str, model_path: str):
         len(class_names), 
         device
     )
+
     MetricTracker.print_full_report("Inference Run: Target Test Set", metrics, class_names)
     
     print("\nGenerating Advanced Visualizations...")
     
     # 1. Confusion Matrix
-    viz.plot_confusion_matrix(model, tgt_test, class_names, "Inference_Confusion_Matrix")
+    viz.plot_confusion_matrix(model, target_loaders['test'], class_names, "Inference Target Test - Confusion Matrix")
 
     # 2. ROC Curve
-    viz.plot_roc_curve(model, tgt_test, class_names, "Inference_ROC")
+    viz.plot_roc_curve(model, target_loaders['test'], class_names, "Inference Target Test - ROC Curve")
+
+    # 3. Domain Alignment
+    viz.plot_umap(model, source_loaders['test'], target_loaders['test'], "Inference Target Test - Domain Alignment")
     
-    # 3. Qualitative Latent Space with LIME Lassos
+    # 4. Qualitative Latent Space with LIME Lassos
     # This reflects your requirement to group images by lighting variation (LIME_01 to LIME_07)
     viz.plot_umap_with_images(
         model=model, 
-        source_loader=src_test, 
-        target_loader=tgt_test, 
+        source_loader=source_loaders['test'], 
+        target_loader=target_loaders['test'], 
         class_names=class_names, 
-        prefix="Latent_Space",
-        image_zoom=0.15,
-        min_dist_plots=1.9,
-        use_lime=False  # Triggers the Convex Hull grouping based on filenames
+        prefix="Inference Target Test - Latent Space",
+        image_zoom=0.07,
+        min_dist_plots=0.45,
+        use_lime=cfg.data.use_lime_on_target,
     )
     
     print(f"\nInference completed successfully. Results saved in: {output_dir}")

@@ -44,8 +44,8 @@ def run_transfer_experiment(config_path: str) -> None:
     # 4. Training Execution
     trainer = BaselineTrainer(
         model=model,
-        train_loader=src_train,
-        val_loader=src_val,
+        train_loader=syn_train,
+        val_loader=syn_val,
         criterion=criterion,
         optimizer=optimizer,
         config=cfg.training,
@@ -70,8 +70,8 @@ def run_transfer_experiment(config_path: str) -> None:
     print(f"\n Starting TRANSFER experiment on {device}...")
     transfer_trainer = BaselineTrainer(
         model=trained_model,
-        train_loader=syn_train,
-        val_loader=syn_val,
+        train_loader=src_train,
+        val_loader=src_val,
         criterion=criterion,
         optimizer=optimizer,
         config=cfg.training,
@@ -80,14 +80,14 @@ def run_transfer_experiment(config_path: str) -> None:
 
     transfer_trainer.fit(scheduler=scheduler)
 
-    # 5. Final Evaluation on Source Test Set (To verify the baseline works on its own domain)
+    # 5. Final Evaluation on Source Test Set
     viz = BananaVisualizer(device=device, output_dir=str(output_path))
     
-    print("\n Generating Final Statistical Reports on Target Test Set...")
+    print("\n Generating Final Statistical Reports on Source Test Set...")
     # Get raw inference data from the source test set
     y_true_np, y_pred_np, y_probs_np, _, _ = viz._get_inference_data(
         trained_model, 
-        syn_test
+        src_test
     ) 
 
     metrics = MetricTracker.compute_full_metrics(
@@ -96,11 +96,11 @@ def run_transfer_experiment(config_path: str) -> None:
         len(class_names), 
         device
     )
-    MetricTracker.print_full_report("Target Domain Transfer Test", metrics, class_names)
+    MetricTracker.print_full_report("Source Domain Transfer Test", metrics, class_names)
     
     # Quantitative Visualizations
-    viz.plot_confusion_matrix(trained_model, syn_test, class_names, "Transfer Target Test")
-    viz.plot_roc_curve(trained_model, syn_test, class_names, "Transfer Target Test")
+    viz.plot_confusion_matrix(trained_model, src_test, class_names, "Transfer Source Test")
+    viz.plot_roc_curve(trained_model, src_test, class_names, "Transfer Source Test")
     
     # 6. Save the trained weights
     save_file = Path(output_path) / "model_final.pth"

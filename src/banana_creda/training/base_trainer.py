@@ -73,7 +73,7 @@ class BaselineTrainer:
             print(f"[Train] Time: {formatted_time} | Loss: {train_loss:.4f} | Acc: {train_acc:.4f}")
             
             # 2. Validation Phase (Utilizando MetricTracker y evaluate)
-            val_acc = self.evaluate(self.val_loader, src_classes, "Src Val")
+            val_acc = self.evaluate(self.val_loader, src_classes, "Val")
             self.history['val_loss'].append(0.0) # Se puede omitir o calcular si necesitas plotearlo
             self.history['val_acc'].append(val_acc)
             
@@ -85,7 +85,7 @@ class BaselineTrainer:
             if val_acc > self.best_val_acc:
                 self.best_val_acc = val_acc
                 self.best_model_weights = copy.deepcopy(self.model.state_dict())
-                print(f"New best model found! (Source Val Acc: {self.best_val_acc:.4f})")
+                print(f"New best model found! (Val Acc: {self.best_val_acc:.4f})")
 
         total_time = time.time() - total_train_start
         print(f"\n{' TRAINING COMPLETE ':=^50}")

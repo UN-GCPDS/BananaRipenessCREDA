@@ -1,6 +1,7 @@
 data:
   source_data_dir: "/kaggle/input/datasets/lucasiturriago/bananaripeness/Original"
   target_data_dir: "/kaggle/input/datasets/lucasiturriago/bananaripeness/High_Variation"
+  synthetic_data_dir: "/kaggle/input/datasets/lucasiturriago/bananaripeness/Synthetic"
   batch_size: 32
   img_size: 224
   num_workers: 4
@@ -16,6 +17,8 @@ model:
 training:
   epochs: 20
   lr: 0.0001
+  transfer_epochs: 10
+  transfer_lr: 0.00001
   gamma: 0.94
   warmup: true
   warmup_epochs: 5

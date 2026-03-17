@@ -7,6 +7,7 @@ class DataConfig(BaseModel):
     """Configuration for data loading and transformation."""
     source_data_dir: str
     target_data_dir: str
+    synthetic_data_dir: str
     batch_size: int = Field(default=32, gt=0)
     img_size: int = Field(default=224, gt=0)
     num_workers: int = Field(default=4)
@@ -23,7 +24,9 @@ class ModelConfig(BaseModel):
 class TrainConfig(BaseModel):
     """Configuration for training and Domain Adaptation."""
     epochs: int = Field(default=10, gt=0)
+    transfer_epochs: int = Field(default=10, gt=0)
     lr: float = Field(default=1e-4, gt=0)
+    transfer_lr: float = Field(default=1e-4, gt=0)
     gamma: float = 0.94
     
     # Warm-up logic

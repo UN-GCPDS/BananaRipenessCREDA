@@ -5,58 +5,96 @@ from banana_creda.config import ModelConfig
 
 class BananaModel(nn.Module):
     """
-    Modular architecture for Domain Adaptation.
-    Supports ResNet, ViT, EfficientNet and MobileNet.
+    Modular neural network architecture designed for Domain Adaptation tasks.
+
+    This class provides a unified interface for various backbone architectures 
+    (ResNet34, ViT-B/16, EfficientNet-B0, MobileNetV3-Large) and handles the 
+    extraction of features versus classification outputs.
+
+    Attributes:
+        config (ModelConfig): Configuration object containing model parameters.
+        backbone (nn.Module): The feature extraction portion of the network.
+        classifier (nn.Module): The classification head of the network.
     """
     def __init__(self, config: ModelConfig):
+        """
+        Initializes the BananaModel with a specific configuration.
+
+        Args:
+            config (ModelConfig): Model configuration including backbone type,
+                pretraining status, and number of classes.
+        """
         super(BananaModel, self).__init__()
         self.config = config
         
         # 1. Get the backbone and its output dimension
-        self.backbone, self.num_features = self._get_backbone_and_dims()
-        
-        # 2. Common classifier (Head)
-        self.classifier = nn.Linear(self.num_features, self.config.num_classes)
+        self.backbone, self.classifier = self._get_backbone_classifier()
 
-    def _get_backbone_and_dims(self) -> tuple[nn.Module, int]:
+    def _get_backbone_classifier(self) -> tuple[nn.Module, nn.Module]:
         """
-        Backbone factory: Initializes the architecture and extracts the 
-        dimension of the latent embedding.
+        Factory method to initialize the backbone and classifier components.
+
+        Depending on the configuration, it loads a pre-defined architecture, 
+        optionally fetches pretrained weights, and splits the model into 
+        feature extraction and classification modules. It also adjusts the 
+        final linear layer to match the number of classes.
+
+        Returns:
+            tuple[nn.Module, nn.Module]: A tuple containing (backbone, classifier).
+        
+        Raises:
+            ValueError: If the specified backbone name is not supported.
         """
         bb_name = self.config.backbone.lower()
         weights = "IMAGENET1K_V1" if self.config.pretrained else None
         
         if bb_name == "resnet":
             model = models.resnet34(weights=weights)
-            num_in = model.fc.in_features
-            model.fc = nn.Identity() # Remove the original head
+            modules = list(model.children())
+            backbone = nn.Sequential(*modules[:-1])
+            classifier = nn.Sequential(*modules[-1:])
+            classifier[0] = nn.Linear(classifier[0].in_features, self.config.num_classes)
             
         elif bb_name == "vit":
             model = models.vit_b_16(weights=weights)
-            # ViT-B-16 has a head in model.heads.head   
-            num_in = model.heads.head.in_features
-            model.heads = nn.Identity()
+            modules = list(model.children())
+            backbone = nn.Sequential(*modules[:-1])
+            classifier = nn.Sequential(*modules[-1:])
+            classifier[0][0] = nn.Linear(classifier[0][0].in_features, self.config.num_classes)
             
         elif bb_name == "efficientnet":
             model = models.efficientnet_b0(weights=weights)
-            # EfficientNet has the head in model.classifier[1]
-            num_in = model.classifier[1].in_features
-            model.classifier = nn.Identity()
+            modules = list(model.children())
+            backbone = nn.Sequential(*modules[:-1])
+            classifier = nn.Sequential(*modules[-1:])
+            classifier[0][1] = nn.Linear(classifier[0][1].in_features, self.config.num_classes)
             
         elif bb_name == "mobilenetv3":
             model = models.mobilenet_v3_large(weights=weights)
-            # MobileNetV3 has a complex head in .classifier
-            num_in = model.classifier[3].in_features
-            model.classifier[3] = nn.Identity()
+            modules = list(model.children())
+            backbone = nn.Sequential(*modules[:-1])
+            classifier = nn.Sequential(*modules[-1:])
+            classifier[0][3] = nn.Linear(classifier[0][3].in_features, self.config.num_classes)
             
         else:
             raise ValueError(f"Backbone '{bb_name}' not supported for Banana model")
             
-        return model, num_in
+        return backbone, classifier
 
     def forward(self, x: torch.Tensor, mode: str = 'class'):
         """
-        Forward pass consistent for all architectures.
+        Performs the forward pass through the network.
+
+        Args:
+            x (torch.Tensor): Input tensor (usually image batch).
+            mode (str): Execution mode. 
+                - 'class': Returns the final classification scores (logits).
+                - 'feature': Returns the latent embedding (feature vector).
+                Defaults to 'class'.
+
+        Returns:
+            torch.Tensor: Either the features of shape (B, D) or the logits of 
+                shape (B, num_classes).
         """
         # Extract features
         features = self.backbone(x)

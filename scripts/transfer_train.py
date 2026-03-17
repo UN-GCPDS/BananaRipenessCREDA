@@ -58,7 +58,7 @@ def run_transfer_experiment(config_path: str) -> None:
     for param in trained_model.parameters():
         param.requires_grad = False
 
-    for param in trained_model.fc.parameters():
+    for param in trained_model.classifier.parameters():
         param.requires_grad = True
 
     params_to_update = [p for p in trained_model.parameters() if p.requires_grad]

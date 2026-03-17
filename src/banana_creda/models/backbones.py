@@ -52,21 +52,28 @@ class BananaModel(nn.Module):
             model = models.resnet34(weights=weights)
             modules = list(model.children())
             backbone = nn.Sequential(*modules[:-1])
-            classifier = nn.Sequential(*modules[-1:])
-            classifier[0] = nn.Linear(classifier[0].in_features, self.config.num_classes)
+            classifier = nn.Sequential(
+                nn.Dropout(p=self.config.dropout_rate),
+                nn.Linear(model.fc.in_features, self.config.num_classes)
+            )
             
         elif bb_name == "vit":
             model = models.vit_b_16(weights=weights)
             modules = list(model.children())
             backbone = nn.Sequential(*modules[:-1])
-            classifier = nn.Sequential(*modules[-1:])
-            classifier[0][0] = nn.Linear(classifier[0][0].in_features, self.config.num_classes)
+            classifier = nn.Sequential(
+                nn.Sequential(
+                    nn.Dropout(p=self.config.dropout_rate),
+                    nn.Linear(model.heads[0].in_features, self.config.num_classes)
+                )
+            )
             
         elif bb_name == "efficientnet":
             model = models.efficientnet_b0(weights=weights)
             modules = list(model.children())
             backbone = nn.Sequential(*modules[:-1])
             classifier = nn.Sequential(*modules[-1:])
+            classifier[0][0] = nn.Dropout(p=self.config.dropout_rate, inplace=True)
             classifier[0][1] = nn.Linear(classifier[0][1].in_features, self.config.num_classes)
             
         elif bb_name == "mobilenetv3":
@@ -74,6 +81,7 @@ class BananaModel(nn.Module):
             modules = list(model.children())
             backbone = nn.Sequential(*modules[:-1])
             classifier = nn.Sequential(*modules[-1:])
+            classifier[0][2] = nn.Dropout(p=self.config.dropout_rate, inplace=True)
             classifier[0][3] = nn.Linear(classifier[0][3].in_features, self.config.num_classes)
             
         else:

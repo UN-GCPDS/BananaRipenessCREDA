@@ -28,6 +28,7 @@ class TrainConfig(BaseModel):
     lr: float = Field(default=1e-4, gt=0)
     transfer_lr: float = Field(default=1e-4, gt=0)
     gamma: float = 0.94
+    dropout_rate: float = Field(default=0.2, ge=0.0, le=1.0)
     
     # Warm-up logic
     warmup: bool = True

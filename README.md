@@ -17,31 +17,6 @@ This project implements a Domain Adaptation approach for classifying banana ripe
 - **Visualization**: Includes tools for visualizing Confusion Matrices and UMAP embeddings of the latent space.
 - **Configurable**: Driven by `yaml` configuration files for flexible experimentation.
 
-## Project Structure
-
-```
-BananaRipenessCREDA/
-├── configs/                # Configuration files (YAML)
-│   └── base_experiment.yaml
-├── data/                   # Data storage (if not using external paths)
-├── notebooks/              # Jupyter notebooks for exploration
-├── scripts/                # Executable run scripts
-│   ├── train.py            # Main training script
-│   ├── inference.py        # Inference script
-│   └── download_data.py    # Data download utility
-├── src/                    # Source code
-│   └── banana_creda/       # Main package
-│       ├── data/           # Data loading logic
-│       ├── losses/         # CREDA loss implementation
-│       ├── models/         # Model architectures
-│       ├── training/       # Training loop
-│       ├── utils/          # Metrics and visualization
-│       └── config.py       # Configuration schemas
-├── tests/                  # Unit tests
-├── README.md               # Project documentation
-└── pyproject.toml          # Project dependencies and metadata
-```
-
 ## Installation
 
 1.  **Clone the repository**:

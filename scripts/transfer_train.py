@@ -14,9 +14,11 @@ from banana_creda.utils.visualizer import BananaVisualizer
 from banana_creda.utils.reproducibility import set_seed
 from banana_creda.utils.metrics import MetricTracker
 
+
 # Baseline-specific imports
 from banana_creda.losses.ce import CELoss
 from banana_creda.training.base_trainer import BaselineTrainer
+from banana_creda.training.transfer_trainer import TransferTrainer
 
 def run_transfer_experiment(config_path: str) -> None:
     # 1. Load Configuration & Setup
@@ -55,30 +57,18 @@ def run_transfer_experiment(config_path: str) -> None:
     print(f"\n Starting BASELINE experiment on {device}...")
     trained_model, history = trainer.fit(scheduler=scheduler)
 
-    for param in trained_model.parameters():
-        param.requires_grad = False
-
-    for param in trained_model.classifier.parameters():
-        param.requires_grad = True
-
-    params_to_update = [p for p in trained_model.parameters() if p.requires_grad]
-
-    optimizer = optim.Adam(params_to_update, lr=cfg.training.transfer_lr, weight_decay=1e-5)
-    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=cfg.training.gamma)
-
     # 5. Transfer Training (Fine-tuning on Synthetic Data)
     print(f"\n Starting TRANSFER experiment on {device}...")
-    transfer_trainer = BaselineTrainer(
+    transfer_trainer = TransferTrainer(
         model=trained_model,
         train_loader=src_train,
         val_loader=src_val,
         criterion=criterion,
-        optimizer=optimizer,
         config=cfg.training,
         device=device
     )
 
-    transfer_trainer.fit(scheduler=scheduler)
+    transfer_trainer.fit()
 
     # 5. Final Evaluation on Source Test Set
     viz = BananaVisualizer(device=device, output_dir=str(output_path))

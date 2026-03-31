@@ -93,7 +93,7 @@ class ExperimentMetadata(BaseModel):
         save_results (bool): Whether to save the results of the experiment.
     """
     name: str = "base_experiment"
-    version: int = Field(default=1, gt=0)
+    version: int = Field(default=1, ge=0)
     output_dir: Path = Path("outputs/experiment_1")
     save_results: bool = False
 

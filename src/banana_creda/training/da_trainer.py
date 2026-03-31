@@ -181,7 +181,7 @@ class BananaTrainer:
 
             # 1. Train
             train_metrics = self.train_epoch()
-            formatted_time = self.format_time(train_metrics['epoch_time'])
+            formatted_time = format_time(train_metrics['epoch_time'])
             
             loss_total = train_metrics.get('total_loss', 0.0)
             loss_cls = train_metrics.get('loss_cls', 0.0)
@@ -223,7 +223,7 @@ class BananaTrainer:
 
         total_time = time.time() - total_train_start
         print(f"\n{' TRAINING COMPLETE ':=^50}")
-        print(f"Total Duration: {self.format_time(total_time)}")
+        print(f"Total Duration: {format_time(total_time)}")
         print(f"Best Accuracy: {self.best_acc:.4f}")
         print("="*50)
 

@@ -95,7 +95,7 @@ class BaselineTrainer:
             self.history['train_loss'].append(train_loss)
             self.history['train_acc'].append(train_acc)
             
-            formatted_time = self.format_time(epoch_time)
+            formatted_time = format_time(epoch_time)
             print(f"[Train] Time: {formatted_time} | Loss: {train_loss:.4f} | Acc: {train_acc:.4f}")
             
             # 2. Validation Phase (using MetricTracker and evaluate)
@@ -115,7 +115,7 @@ class BaselineTrainer:
 
         total_time = time.time() - total_train_start
         print(f"\n{' TRAINING COMPLETE ':=^50}")
-        print(f"Total Duration: {self.format_time(total_time)}")
+        print(f"Total Duration: {format_time(total_time)}")
         print(f"Best Accuracy: {self.best_val_acc:.4f}")
         print("="*50)
         

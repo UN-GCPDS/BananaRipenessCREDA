@@ -10,9 +10,21 @@ from tqdm import tqdm
 from banana_creda.utils.metrics import MetricTracker
 
 class BaselineTrainer:
-    """
-    Trainer class for baseline classification models without Domain Adaptation.
+    """Trainer class for baseline classification models without Domain Adaptation.
+
     Handles the training loop, validation, metric tracking, and best checkpoint saving.
+
+    Attributes:
+        model (nn.Module): The neural network model.
+        train_loader (DataLoader): DataLoader for training data.
+        val_loader (DataLoader): DataLoader for validation data.
+        criterion (nn.Module): Loss function.
+        optimizer (optim.Optimizer): Optimization algorithm.
+        config (Any): Configuration object containing training hyperparameters.
+        device (torch.device): Computing device.
+        best_val_acc (float): Highest validation accuracy achieved.
+        best_model_weights (Optional[Dict[str, torch.Tensor]]): State dict of the best model.
+        history (Dict[str, List[float]]): Record of losses and accuracies over epochs.
     """
 
     def __init__(
@@ -25,6 +37,17 @@ class BaselineTrainer:
         config: Any,
         device: torch.device
     ) -> None:
+        """Initializes the BaselineTrainer.
+
+        Args:
+            model (nn.Module): The model to train.
+            train_loader (DataLoader): Source of training samples.
+            val_loader (DataLoader): Source of validation samples.
+            criterion (nn.Module): Loss criterion (e.g., CrossEntropyLoss).
+            optimizer (optim.Optimizer): Optimizer for parameter updates.
+            config (Any): Training configuration object.
+            device (torch.device): Device to run training on (cpu/cuda).
+        """
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -38,7 +61,7 @@ class BaselineTrainer:
         self.best_model_weights: Optional[Dict[str, torch.Tensor]] = copy.deepcopy(model.state_dict())
         
         # Metrics history
-        self.history: Dict[str, list] = {
+        self.history: Dict[str, List[float]] = {
             'train_loss': [],
             'train_acc': [],
             'val_loss': [],
@@ -46,16 +69,31 @@ class BaselineTrainer:
         }
 
     def _format_time(self, seconds: float) -> str:
-        """Converts seconds to MM:SS format."""
+        """Converts seconds into a readable MM:SS format.
+
+        Args:
+            seconds (float): Total seconds to format.
+
+        Returns:
+            str: Formatted time string (MM:SS).
+        """
         m, s = divmod(int(seconds), 60)
         return f"{m:02d}:{s:02d}"
 
     def fit(
         self, 
         scheduler: Optional[optim.lr_scheduler.LRScheduler] = None
-    ) -> Tuple[nn.Module, Dict[str, list]]:
-        
-        epochs: int = getattr(self.config, 'epochs', 10) # Fallback to 10 if not defined
+    ) -> Tuple[nn.Module, Dict[str, List[float]]]:
+        """Executes the full training and validation process.
+
+        Args:
+            scheduler (Optional[LRScheduler]): Optional learning rate scheduler.
+
+        Returns:
+            Tuple[nn.Module, Dict[str, List[float]]]: 
+                The model with the best validation weights and the training history.
+        """
+        epochs: int = getattr(self.config, 'epochs', 10)
         src_classes = self.train_loader.dataset.classes
         total_train_start = time.time()
 
@@ -72,9 +110,9 @@ class BaselineTrainer:
             formatted_time = self._format_time(epoch_time)
             print(f"[Train] Time: {formatted_time} | Loss: {train_loss:.4f} | Acc: {train_acc:.4f}")
             
-            # 2. Validation Phase (Utilizando MetricTracker y evaluate)
+            # 2. Validation Phase (using MetricTracker and evaluate)
             val_acc = self.evaluate(self.val_loader, src_classes, "Val")
-            self.history['val_loss'].append(0.0) # Se puede omitir o calcular si necesitas plotearlo
+            self.history['val_loss'].append(0.0)  # Can be calculated if needed for plotting
             self.history['val_acc'].append(val_acc)
             
             # 3. Learning Rate Scheduling
@@ -100,16 +138,18 @@ class BaselineTrainer:
         return self.model, self.history
 
     def _train_epoch(self) -> Tuple[float, float, float]:
-        """
-        Runs a single epoch of training.
-        Returns: Average loss, Average Accuracy, Epoch time in seconds.
+        """Runs a single epoch of supervised training.
+
+        Returns:
+            Tuple[float, float, float]: 
+                Average batch loss, overall accuracy, and total epoch time in seconds.
         """
         self.model.train()
         running_loss: float = 0.0
         
-        # Para el cálculo de accuracy con MetricTracker
-        all_preds = []
-        all_labels = []
+        # Accumlators for MetricTracker
+        all_preds: List[torch.Tensor] = []
+        all_labels: List[torch.Tensor] = []
         
         epoch_start = time.time()
         pbar = tqdm(self.train_loader, desc="Training (Baseline)", leave=False)
@@ -132,7 +172,7 @@ class BaselineTrainer:
             batch_size: int = imgs.size(0)
             running_loss += loss.item() * batch_size
             
-            # Guardamos predicciones para MetricTracker
+            # Store predictions for accuracy calculation
             preds = torch.argmax(logits, dim=1)
             all_preds.append(preds.detach())
             all_labels.append(labels.detach())
@@ -143,7 +183,7 @@ class BaselineTrainer:
         epoch_time = time.time() - epoch_start
         epoch_loss: float = running_loss / len(self.train_loader.dataset)
         
-        # Calculamos el accuracy global con MetricTracker
+        # Calculate global accuracy using MetricTracker
         num_classes = len(self.train_loader.dataset.classes)
         overall_acc, _ = MetricTracker.compute_accuracy(
             torch.cat(all_preds), torch.cat(all_labels), num_classes
@@ -153,12 +193,19 @@ class BaselineTrainer:
 
     @torch.no_grad()
     def evaluate(self, loader: DataLoader, class_names: List[str], prefix: str = "Val") -> float:
-        """
-        Runs validation and prints the summary using MetricTracker.
-        Returns the overall accuracy.
+        """Evaluates the model on a given dataset.
+
+        Args:
+            loader (DataLoader): The dataset to evaluate.
+            class_names (List[str]): List of human-readable class names.
+            prefix (str): Label for the evaluation phase (e.g., "Val", "Test").
+
+        Returns:
+            float: Overall classification accuracy.
         """
         self.model.eval()
-        all_preds, all_labels = [], []
+        all_preds: List[torch.Tensor] = []
+        all_labels: List[torch.Tensor] = []
         
         pbar = tqdm(loader, desc=f"Evaluating ({prefix})", leave=False)
         
@@ -169,12 +216,12 @@ class BaselineTrainer:
             # Forward pass
             logits: torch.Tensor = self.model(imgs, mode='class')
             
-            # Guardamos predicciones
+            # Store predictions
             preds = torch.argmax(logits, dim=1)
             all_preds.append(preds)
             all_labels.append(labels)
 
-        # Usar MetricTracker
+        # Compute metrics via MetricTracker
         overall_acc, per_class_acc = MetricTracker.compute_accuracy(
             torch.cat(all_preds), torch.cat(all_labels), len(class_names)
         )

@@ -1,3 +1,10 @@
+"""
+Command-line script for training a baseline classification model on the source domain.
+
+This script loads configuration, prepares data loaders for the source domain, 
+initializes the baseline model and trainer, and executes the training loop.
+It concludes by generating performance reports and saving the model weights.
+"""
 import argparse
 import matplotlib.pyplot as plt
 import torch
@@ -19,6 +26,11 @@ from banana_creda.losses.ce import CELoss
 from banana_creda.training.base_trainer import BaselineTrainer
 
 def run_baseline_experiment(config_path: str) -> None:
+    """Runs the baseline training and evaluation experiment.
+
+    Args:
+        config_path (str): Path to the YAML configuration file.
+    """
     # 1. Load Configuration & Setup
     cfg = ExperimentConfig.from_yaml(config_path)
     device = torch.device(cfg.training.device if torch.cuda.is_available() else "cpu")
@@ -29,9 +41,9 @@ def run_baseline_experiment(config_path: str) -> None:
     output_path = Path(cfg.experiment.output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     
-    # 2. Data Setup (ONLY Source/Orig data)
+    # 2. Data Setup (ONLY Source/Original data)
     data_manager = BananaDataLoader(cfg.data)
-    # Asegúrate de que cfg.data.source_data_dir apunte a tu "Real Dataset" (sin variaciones)
+    # Ensure that cfg.data.source_data_dir points to your "Real Dataset" (without variations)
     src_train, src_val, src_test, class_names = data_manager.get_split_loaders(cfg.data.source_data_dir)
 
     # 3. Model, Loss, and Optimizer Initialization
@@ -87,4 +99,4 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=str, default="configs/base_experiment.yaml", help="Path to YAML config")
     args = parser.parse_args()
     
-    run_baseline_experiment(args.config)
+    run_baseline_experiment(args.config)

@@ -3,23 +3,50 @@ import torch.nn as nn
 import torchvision.models as models
 from torchvision.models.feature_extraction import create_feature_extractor
 
+from typing import List, Tuple
 from banana_creda.config import ModelConfig
 
 class FeatureWrapper(nn.Module):
+    """Wrapper class to extract features from a specific node in a PyTorch model.
+    
+    Attributes:
+        extractor (nn.Module): The underlying feature extraction module.
     """
-    Wrapper class to extract features from a specific node in a PyTorch model.
-    """
-    def __init__(self, model, node_name):
+    def __init__(self, model: nn.Module, node_name: str):
+        """Initializes the FeatureWrapper.
+        
+        Args:
+            model (nn.Module): Pretrained model to wrap.
+            node_name (str): The name of the node from which to extract features.
+        """
         super().__init__()
         self.extractor = create_feature_extractor(model, return_nodes={node_name: 'out'})
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass to extract features.
+        
+        Args:
+            x (torch.Tensor): Input image tensor.
+            
+        Returns:
+            torch.Tensor: Extracted features from the specified node.
+        """
         return self.extractor(x)['out']
 
-def get_backbone_components(config: ModelConfig):
-    """
-    Returns the encoder and classifier for a given backbone configuration.
-    This function avoids redundant model loading.
+def get_backbone_components(config: ModelConfig) -> Tuple[List[nn.Module], nn.Module, bool]:
+    """Retrieves the encoder layers and classifier for a specific backbone.
+    
+    This function initializes only the necessary layers to avoid redundancy.
+    
+    Args:
+        config (ModelConfig): Configuration object specifying backbone and hyperparameters.
+        
+    Returns:
+        Tuple[List[nn.Module], nn.Module, bool]: 
+            List of encoder layers, the classification head, and a flag for ViT indexing.
+            
+    Raises:
+        ValueError: If the backbone name in config is not supported.
     """
     bb_name = config.backbone.lower()
     weights = "IMAGENET1K_V1" if config.pretrained else None
@@ -90,20 +117,37 @@ def get_backbone_components(config: ModelConfig):
         raise ValueError(f"Backbone '{bb_name}' not supported for Banana model")
 
 class BananaModel(nn.Module):
-    """
-    Modular neural network architecture designed for Domain Adaptation tasks.
+    """Modular neural network architecture for Domain Adaptation tasks.
+    
+    Supports multiple backbones and provides dual forward pass (features/logits).
+    
+    Attributes:
+        config (ModelConfig): Configuration settings.
+        encoder (nn.Module): Core feature extraction layers.
+        classifier (nn.Module): Final classification layers.
+        needs_vit_indexing (bool): Flag indicating if ViT-style class token indexing is needed.
     """
     def __init__(self, config: ModelConfig):
+        """Initializes the BananaModel.
+        
+        Args:
+            config (ModelConfig): Neural network configuration.
+        """
         super(BananaModel, self).__init__()
         self.config = config
         
-        self.encoder, self.classifier, self.needs_vit_indexing = get_backbone_components(config)
+        encoder_layers, self.classifier, self.needs_vit_indexing = get_backbone_components(config)
+        self.encoder = nn.Sequential(*encoder_layers)
 
-        self.encoder = nn.Sequential(*self.encoder)
-
-    def forward(self, x: torch.Tensor, mode: str = 'class'):
-        """
-        Performs the forward pass through the network.
+    def forward(self, x: torch.Tensor, mode: str = 'class') -> torch.Tensor:
+        """Executes the forward pass of the model.
+        
+        Args:
+            x (torch.Tensor): Input batch of images.
+            mode (str): Execution mode, either 'class' for logits or 'feature' for deep features.
+            
+        Returns:
+            torch.Tensor: Logits or feature vectors depending on the mode.
         """
         features = self.encoder(x)
 

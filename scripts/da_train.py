@@ -1,3 +1,11 @@
+"""
+Command-line script for training the Domain Adaptation (DA) model using CREDA.
+
+This script manages the full Domain Adaptation experiment, including loading 
+source and target datasets, initializing the CREDA model and trainer, 
+executing the training loop, and generating comprehensive visualization 
+and statistical reports on the target domain.
+"""
 import torch
 import torch.optim as optim
 from torch.optim import lr_scheduler
@@ -14,7 +22,12 @@ from banana_creda.utils.visualizer import BananaVisualizer
 from banana_creda.utils.reproducibility import set_seed
 from banana_creda.utils.metrics import MetricTracker
 
-def run_experiment(config_path: str):
+def run_experiment(config_path: str) -> None:
+    """Executes the Domain Adaptation experiment using the CREDA algorithm.
+
+    Args:
+        config_path (str): Path to the YAML configuration file.
+    """
     # 1. Load Configuration (Validation with Pydantic)
     cfg = ExperimentConfig.from_yaml(config_path)
     device = torch.device(cfg.training.device if torch.cuda.is_available() else "cpu")
@@ -26,13 +39,13 @@ def run_experiment(config_path: str):
     # 2. Data Setup (Source: Normal / Target: Varying Illumination)
     data_manager = BananaDataLoader(cfg.data)
     
-    # IMPORTANTE: Ahora el Source NO recibe parámetro LIME
+    # IMPORTANT: Source domain loader does not require lighting variation (LIME) labels
     src_train, src_val, src_test, class_names = data_manager.get_split_loaders(cfg.data.source_data_dir)
     
-    # IMPORTANTE: Ahora el Target SÍ recibe el parámetro LIME
+    # IMPORTANT: Target domain loader requires lighting variation (LIME) labels if use_lime_on_target is True
     tgt_train, tgt_val, tgt_test, _ = data_manager.get_split_loaders(
         cfg.data.target_data_dir, 
-        cfg.data.use_lime_on_target # <-- Asegúrate de cambiar este nombre en tu config.yaml
+        cfg.data.use_lime_on_target
     )
     
     source_loaders = {'train': src_train, 'validation': src_val, 'test': src_test}
@@ -98,7 +111,7 @@ def run_experiment(config_path: str):
         prefix="Target Test - Latent Space",
         image_zoom=0.07,
         min_dist_plots=0.45,
-        use_lime=cfg.data.use_lime_on_target, # <-- Pasamos el flag correcto al visualizador
+        use_lime=cfg.data.use_lime_on_target,  # Pass the correct flag to the visualizer
     )
     
     # Save best model weights

@@ -12,7 +12,43 @@ from banana_creda.utils.metrics import MetricTracker
 from banana_creda.config import TrainConfig
 
 class BananaTrainer:
-    def __init__(self, model, source_loaders, target_loaders, criterion, optimizer, config: TrainConfig):
+    """Trainer class for Domain Adaptation using the CREDA algorithm.
+
+    Handles the training loop with dual-domain batching, uncertainty-weighted 
+    alignment, and automated mixed precision (AMP).
+
+    Attributes:
+        model (nn.Module): The neural network model.
+        source_loaders (Dict[str, DataLoader]): DataLoaders for the source domain.
+        target_loaders (Dict[str, DataLoader]): DataLoaders for the target domain.
+        criterion (nn.Module): Loss function (usually CREDALoss).
+        optimizer (optim.Optimizer): Optimization algorithm.
+        config (TrainConfig): Configuration object with training hyperparameters.
+        device (torch.device): Computing device (cpu/cuda/mps).
+        use_amp (bool): Whether to use Automatic Mixed Precision.
+        scaler (GradScaler): Gradient scaler for AMP.
+        best_acc (float): Highest target validation accuracy achieved.
+        best_model_wts (Dict[str, torch.Tensor]): State dict of the best model.
+    """
+    def __init__(
+        self, 
+        model: nn.Module, 
+        source_loaders: Dict[str, DataLoader], 
+        target_loaders: Dict[str, DataLoader], 
+        criterion: nn.Module, 
+        optimizer: optim.Optimizer, 
+        config: TrainConfig
+    ):
+        """Initializes the BananaTrainer.
+
+        Args:
+            model (nn.Module): The model to train.
+            source_loaders (Dict[str, DataLoader]): Source domain data loaders.
+            target_loaders (Dict[str, DataLoader]): Target domain data loaders.
+            criterion (nn.Module): Loss criterion.
+            optimizer (optim.Optimizer): Optimizer for parameter updates.
+            config (TrainConfig): Training configuration.
+        """
         self.model = model
         self.source_loaders = source_loaders
         self.target_loaders = target_loaders
@@ -35,11 +71,23 @@ class BananaTrainer:
         self.best_model_wts = copy.deepcopy(model.state_dict())
 
     def _format_time(self, seconds: float) -> str:
-        """Converts seconds to MM:SS format."""
+        """Converts seconds into a readable MM:SS format.
+
+        Args:
+            seconds (float): Total seconds to format.
+
+        Returns:
+            str: Formatted time string (MM:SS).
+        """
         m, s = divmod(int(seconds), 60)
         return f"{m:02d}:{s:02d}"
 
     def train_epoch(self) -> Dict[str, float]:
+        """Runs a single epoch of Domain Adaptation training.
+
+        Returns:
+            Dict[str, float]: Dictionary containing average losses and epoch time.
+        """
         self.model.train()
         running_losses = defaultdict(float)
         total_samples = 0
@@ -52,10 +100,8 @@ class BananaTrainer:
 
         epoch_start = time.time()
         
-        # ---------------------------------------------------------
-        # AQUÍ INICIA tqdm PARA EL BUCLE DE ENTRENAMIENTO
-        # ---------------------------------------------------------
-        pbar = tqdm(range(num_batches), desc="Training", leave=False)
+        # tqdm progress bar for the training loop
+        pbar = tqdm(range(num_batches), desc="Training (DA)", leave=False)
         
         for _ in pbar:
             src_batch = next(src_iter)
@@ -83,7 +129,7 @@ class BananaTrainer:
             for k, v in loss_dict.items():
                 running_losses[k] += v * batch_size
 
-            # Actualizar barra de progreso con el loss total actual
+            # Update progress bar with the current total loss
             current_loss = loss_dict.get('total_loss', loss.item())
             pbar.set_postfix({'loss': f"{current_loss:.4f}"})
 
@@ -92,13 +138,21 @@ class BananaTrainer:
         return metrics
 
     @torch.no_grad()
-    def evaluate(self, loader, class_names: List[str], prefix: str = "Val") -> float:
+    def evaluate(self, loader: DataLoader, class_names: List[str], prefix: str = "Val") -> float:
+        """Evaluates the model on a given dataset.
+
+        Args:
+            loader (DataLoader): The dataset loader to evaluate.
+            class_names (List[str]): List of human-readable class names.
+            prefix (str): Label for the evaluation phase.
+
+        Returns:
+            float: Overall classification accuracy.
+        """
         self.model.eval()
         all_preds, all_labels = [], []
         
-        # ---------------------------------------------------------
-        # AQUÍ INICIA tqdm PARA EL BUCLE DE EVALUACIÓN
-        # ---------------------------------------------------------
+        # tqdm progress bar for the evaluation loop
         pbar = tqdm(loader, desc=f"Evaluating ({prefix})", leave=False)
         
         for batch in pbar:
@@ -115,7 +169,15 @@ class BananaTrainer:
         MetricTracker.print_summary(prefix, overall_acc, per_class_acc, class_names)
         return overall_acc
 
-    def fit(self, scheduler=None) -> torch.nn.Module:
+    def fit(self, scheduler: Optional[torch.optim.lr_scheduler.LRScheduler] = None) -> torch.nn.Module:
+        """Executes the full Domain Adaptation training process.
+
+        Args:
+            scheduler (Optional[LRScheduler]): Learning rate scheduler.
+
+        Returns:
+            nn.Module: The model with the best target validation weights.
+        """
         src_classes = self.source_loaders['train'].dataset.classes
         warmup_done = not self.config.warmup
         warmup_end_epoch = 0 if warmup_done else -1
@@ -133,7 +195,6 @@ class BananaTrainer:
             train_metrics = self.train_epoch()
             formatted_time = self._format_time(train_metrics['epoch_time'])
             
-            # Use .get() safely in case some losses are not returned by loss_dict
             loss_total = train_metrics.get('total_loss', 0.0)
             loss_cls = train_metrics.get('loss_cls', 0.0)
             loss_creda = train_metrics.get('loss_creda', 0.0)

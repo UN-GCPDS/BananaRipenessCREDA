@@ -1,3 +1,10 @@
+"""
+Command-line script for running inference and evaluation on a trained model.
+
+This script loads a pre-trained model, prepares data loaders for both source 
+and target domains, performs classification on the target test set, and 
+generates performance metrics and latent space visualizations.
+"""
 import torch
 import argparse
 from pathlib import Path
@@ -9,21 +16,32 @@ from banana_creda.models.backbones import BananaModel
 from banana_creda.utils.visualizer import BananaVisualizer
 from banana_creda.utils.metrics import MetricTracker
 
-def run_inference(config_path: str, model_path: str):
+def run_inference(config_path: str, model_path: str, output_dir: str = None) -> None:
+    """Runs inference and generates evaluation reports for a trained model.
+
+    Args:
+        config_path (str): Path to the YAML configuration file.
+        model_path (str): Path to the .pth file containing trained weights.
+        output_dir (str, optional): Override the output directory defined in the YAML config.
+    """
     # 1. Load Configuration and Setup Environment
     cfg = ExperimentConfig.from_yaml(config_path)
+
+    if output_dir is not None:
+        cfg.experiment.output_dir = output_dir
+
     device = torch.device(cfg.training.device if torch.cuda.is_available() else "cpu")
     
     # 2. Data Setup (Prioritizing Target Test data for evaluation)
     data_manager = BananaDataLoader(cfg.data)
     
-    # IMPORTANTE: Ahora el Source NO recibe parámetro LIME
+    # IMPORTANT: Source domain loader does not require lighting variation (LIME) labels
     src_train, src_val, src_test, class_names = data_manager.get_split_loaders(cfg.data.source_data_dir)
     
-    # IMPORTANTE: Ahora el Target SÍ recibe el parámetro LIME
+    # IMPORTANT: Target domain loader requires lighting variation (LIME) labels if use_lime_on_target is True
     tgt_train, tgt_val, tgt_test, _ = data_manager.get_split_loaders(
         cfg.data.target_data_dir, 
-        cfg.data.use_lime_on_target # <-- Asegúrate de cambiar este nombre en tu config.yaml
+        cfg.data.use_lime_on_target
     )
 
     source_loaders = {'train': src_train, 'validation': src_val, 'test': src_test}
@@ -46,7 +64,7 @@ def run_inference(config_path: str, model_path: str):
     
     print("\nExecuting evaluation on Target Test Set...")
 
-    y_true_np, y_pred_np, y_probs_np, _, _ = viz._get_inference_data(model, target_loaders['test'])
+    y_true_np, y_pred_np, y_probs_np, _, _ = viz._get_inference_data(model, target_loaders['test'], save_results=cfg.experiment.save_results)
 
     # Compute and print Full Scientific Report (Precision, Recall, F1, Support)
     metrics = MetricTracker.compute_full_metrics(
@@ -69,8 +87,7 @@ def run_inference(config_path: str, model_path: str):
     # 3. Domain Alignment
     viz.plot_umap(model, source_loaders['test'], target_loaders['test'], "Inference Target Test - Domain Alignment")
     
-    # 4. Qualitative Latent Space with LIME Lassos
-    # This reflects your requirement to group images by lighting variation (LIME_01 to LIME_07)
+    # 4. Qualitative Latent Space with lighting variation analysis (LIME)
     viz.plot_umap_with_images(
         model=model, 
         source_loader=source_loaders['test'], 
@@ -88,6 +105,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Banana-CREDA Inference Script")
     parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file")
     parser.add_argument("--model", type=str, required=True, help="Path to the trained .pth model file")
+    parser.add_argument("--output_dir", type=str, default=None, help="Override the output directory defined in the YAML config")
     
     args = parser.parse_args()
-    run_inference(args.config, args.model)
+    run_inference(args.config, args.model, args.output_dir)

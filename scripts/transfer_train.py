@@ -1,3 +1,10 @@
+"""
+Command-line script for performing transfer learning from synthetic to real data.
+
+This script executes a two-stage training process: first, training on synthetic 
+data as a pre-training step, and then fine-tuning on the source (real) domain 
+using a multi-phase unfreezing strategy.
+"""
 import argparse
 import matplotlib.pyplot as plt
 import torch
@@ -14,13 +21,17 @@ from banana_creda.utils.visualizer import BananaVisualizer
 from banana_creda.utils.reproducibility import set_seed
 from banana_creda.utils.metrics import MetricTracker
 
-
-# Baseline-specific imports
+# Baseline/Transfer-specific imports
 from banana_creda.losses.ce import CELoss
 from banana_creda.training.base_trainer import BaselineTrainer
 from banana_creda.training.transfer_trainer import TransferTrainer
 
 def run_transfer_experiment(config_path: str) -> None:
+    """Runs a transfer learning experiment (Synthetic -> Real).
+
+    Args:
+        config_path (str): Path to the YAML configuration file.
+    """
     # 1. Load Configuration & Setup
     cfg = ExperimentConfig.from_yaml(config_path)
     device = torch.device(cfg.training.device if torch.cuda.is_available() else "cpu")
@@ -43,7 +54,7 @@ def run_transfer_experiment(config_path: str) -> None:
     optimizer = optim.Adam(model.parameters(), lr=cfg.training.lr, weight_decay=1e-5)
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=cfg.training.gamma)
 
-    # 4. Training Execution
+    # 4. Phase 1: Training on Synthetic Data (Baseline)
     trainer = BaselineTrainer(
         model=model,
         train_loader=syn_train,
@@ -54,11 +65,11 @@ def run_transfer_experiment(config_path: str) -> None:
         device=device
     )
     
-    print(f"\n Starting BASELINE experiment on {device}...")
+    print(f"\n Starting BASELINE experiment (Synthetic Data) on {device}...")
     trained_model, history = trainer.fit(scheduler=scheduler)
 
-    # 5. Transfer Training (Fine-tuning on Synthetic Data)
-    print(f"\n Starting TRANSFER experiment on {device}...")
+    # 5. Phase 2: Transfer Training (Fine-tuning on Source Real Data)
+    print(f"\n Starting TRANSFER experiment (Real Data) on {device}...")
     transfer_trainer = TransferTrainer(
         model=trained_model,
         train_loader=src_train,
@@ -70,7 +81,7 @@ def run_transfer_experiment(config_path: str) -> None:
 
     transfer_trainer.fit()
 
-    # 5. Final Evaluation on Source Test Set
+    # 6. Final Evaluation on Source Test Set
     viz = BananaVisualizer(device=device, output_dir=str(output_path))
     
     print("\n Generating Final Statistical Reports on Source Test Set...")
@@ -92,7 +103,7 @@ def run_transfer_experiment(config_path: str) -> None:
     viz.plot_confusion_matrix(trained_model, src_test, class_names, "Transfer Source Test")
     viz.plot_roc_curve(trained_model, src_test, class_names, "Transfer Source Test")
     
-    # 6. Save the trained weights
+    # 7. Save the final trained weights
     save_file = Path(output_path) / "model_final.pth"
     torch.save(trained_model.state_dict(), save_file)
     print(f"\n Experiment completed. Results saved in: {save_file}")
@@ -102,4 +113,4 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=str, default="configs/base_experiment.yaml", help="Path to YAML config")
     args = parser.parse_args()
     
-    run_transfer_experiment(args.config)
+    run_transfer_experiment(args.config)

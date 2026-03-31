@@ -19,15 +19,30 @@ import seaborn as sns
 from scipy.stats import pearsonr
 
 class BananaVisualizer:
-    """
-    Advanced visualization engine for Computer Vision and Domain Adaptation.
+    """Advanced visualization engine for Computer Vision and Domain Adaptation.
+
+    Provides tools for performance analysis, latent space exploration (UMAP), 
+    and distribution alignment assessment.
+
+    Attributes:
+        device (torch.device): Computing device for inference.
+        output_dir (Path): Directory where plots are saved.
+        mean (np.ndarray): Normalization mean for image denormalization.
+        std (np.ndarray): Normalization standard deviation for image denormalization.
     """
 
     def __init__(self, device: torch.device, output_dir: str = "outputs"):
+        """Initializes the BananaVisualizer.
+
+        Args:
+            device (torch.device): Device to use for model inference.
+            output_dir (str): Path to the directory where results will be stored.
+        """
         self.device = device
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
+        # Standard ImageNet normalization constants
         self.mean = np.array([0.485, 0.456, 0.406])
         self.std = np.array([0.229, 0.224, 0.225])
 
@@ -36,17 +51,39 @@ class BananaVisualizer:
     # =========================================================
 
     def _denormalize(self, img_tensor: torch.Tensor) -> np.ndarray:
+        """Converts a normalized PyTorch tensor back into a displayable RGB image.
+
+        Args:
+            img_tensor (torch.Tensor): Normalized image tensor (C, H, W).
+
+        Returns:
+            np.ndarray: Denormalized RGB image (H, W, C) clipped to [0, 1].
+        """
         img = img_tensor.cpu().numpy().transpose(1, 2, 0)
         img = img * self.std + self.mean
         return np.clip(img, 0, 1)
 
     def _get_inference_data(
         self,
-        model,
-        loader,
+        model: torch.nn.Module,
+        loader: torch.utils.data.DataLoader,
         return_lime_variant: bool = False,
-        domain_id: Optional[int] = None
-    ):
+        domain_id: Optional[int] = None,
+        save_results: bool = False
+    ) -> Tuple[Any, ...]:
+        """Runs inference on a dataset and extracts features, labels, and predictions.
+
+        Args:
+            model (nn.Module): The model to use for inference.
+            loader (DataLoader): The dataset loader.
+            return_lime_variant (bool): Whether to extract LIME/lighting variation values.
+            domain_id (Optional[int]): If provided, tags every sample with this domain ID.
+            save_results (bool): Whether to save classification results to a .npy file.
+
+        Returns:
+            Tuple[Any, ...]: A tuple containing (labels, preds, probs, features, images)
+                and optionally (lime_variants, domain_ids).
+        """
         model.eval()
 
         all_feats, all_labels, all_preds, all_probs = [], [], [], []
@@ -54,7 +91,6 @@ class BananaVisualizer:
 
         with torch.no_grad():
             for batch in loader:
-
                 imgs, labels = batch[:2]
                 lime_variant = batch[2] if (return_lime_variant and len(batch) > 2) else None
 
@@ -75,6 +111,13 @@ class BananaVisualizer:
                 if return_lime_variant:
                     all_lime.append(np.array(lime_variant))
 
+        if save_results:
+            y_true, y_pred = np.concatenate(all_labels), np.concatenate(all_preds)
+            correct = (y_true == y_pred)
+            save_path = self.output_dir / "sample_results.npy"
+            np.save(save_path, correct.astype(np.int8))
+            print(f"Sample results saved to: {save_path}")
+
         output = [
             np.concatenate(all_labels),
             np.concatenate(all_preds),
@@ -92,10 +135,24 @@ class BananaVisualizer:
         return tuple(output)
 
     # =========================================================
-    # Confusion Matrix
+    # Performance Monitoring
     # =========================================================
 
-    def plot_confusion_matrix(self, model, loader, class_names: List[str], prefix: str):
+    def plot_confusion_matrix(
+        self, 
+        model: torch.nn.Module, 
+        loader: torch.utils.data.DataLoader, 
+        class_names: List[str], 
+        prefix: str
+    ) -> None:
+        """Generates and saves a normalized confusion matrix heatmap.
+
+        Args:
+            model (nn.Module): The model to evaluate.
+            loader (DataLoader): The dataset loader.
+            class_names (List[str]): List of class names for axes labeling.
+            prefix (str): Filename prefix for the saved plot.
+        """
         y_true, y_pred, _, _, _ = self._get_inference_data(model, loader)
 
         cm = confusion_matrix(y_true, y_pred)
@@ -114,11 +171,21 @@ class BananaVisualizer:
         plt.savefig(path, dpi=300, bbox_inches='tight')
         plt.close()
 
-    # =========================================================
-    # ROC Curve
-    # =========================================================
+    def plot_roc_curve(
+        self, 
+        model: torch.nn.Module, 
+        loader: torch.utils.data.DataLoader, 
+        class_names: List[str], 
+        prefix: str
+    ) -> None:
+        """Computes and plots Receiver Operating Characteristic (ROC) curves.
 
-    def plot_roc_curve(self, model, loader, class_names: List[str], prefix: str):
+        Args:
+            model (nn.Module): The model to evaluate.
+            loader (DataLoader): The dataset loader.
+            class_names (List[str]): List of class names.
+            prefix (str): Filename prefix for the saved plot.
+        """
         y_true, _, y_probs, _, _ = self._get_inference_data(model, loader)
         n_classes = len(class_names)
 
@@ -152,11 +219,24 @@ class BananaVisualizer:
         plt.close()
 
     # =========================================================
-    # UMAP with Images
+    # Latent Space Analysis
     # =========================================================
 
-    def plot_umap(self, model, source_loader, target_loader, prefix: str):
-        """Visualize domain alignment."""
+    def plot_umap(
+        self, 
+        model: torch.nn.Module, 
+        source_loader: torch.utils.data.DataLoader, 
+        target_loader: torch.utils.data.DataLoader, 
+        prefix: str
+    ) -> None:
+        """Visualizes domain alignment in the latent space using UMAP.
+
+        Args:
+            model (nn.Module): The shared feature extractor.
+            source_loader (DataLoader): Source domain data loader.
+            target_loader (DataLoader): Target domain data loader.
+            prefix (str): Filename prefix for the saved plot.
+        """
         _, _, _, feat_s, _ = self._get_inference_data(model, source_loader)
         _, _, _, feat_t, _ = self._get_inference_data(model, target_loader)
         
@@ -178,74 +258,78 @@ class BananaVisualizer:
 
     def plot_umap_with_images(
         self,
-        model,
-        source_loader,
-        target_loader,
-        class_names,
-        prefix,
-        image_zoom=0.07,
-        min_dist_plots=0.15,
-        use_lime=False
-    ):
+        model: torch.nn.Module,
+        source_loader: torch.utils.data.DataLoader,
+        target_loader: torch.utils.data.DataLoader,
+        class_names: List[str],
+        prefix: str,
+        image_zoom: float = 0.07,
+        min_dist_plots: float = 0.15,
+        use_lime: bool = False
+    ) -> None:
+        """Embeds representative images on the UMAP latent space plot.
 
+        Args:
+            model (nn.Module): The model to visualize.
+            source_loader (DataLoader): Data from the Source domain.
+            target_loader (DataLoader): Data from the Target domain.
+            class_names (List[str]): Human-readable class names.
+            prefix (str): Filename prefix for saving.
+            image_zoom (float): Size multiplier for the overlaid images.
+            min_dist_plots (float): Threshold to avoid image overlap in the plot.
+            use_lime (bool): If True, analyzes lighting variation correlation (LIME).
+        """
         # =====================================================
-        # SOURCE: Ahora son los datos NORMALES (sin LIME)
+        # SOURCE: Processing standard data (without LIME/lighting vars)
         # =====================================================
         data_s = self._get_inference_data(
                 model,
                 source_loader,
-                return_lime_variant=False, # <-- Cambiado a False
-                domain_id= 0
+                return_lime_variant=False,
+                domain_id=0
             )
         
-        # Como Source no tiene LIME, siempre desempaquetamos 6 elementos
+        # Source has 6 elements in the returned tuple as return_lime_variant is False
         y_s, _, _, feat_s, imgs_s, dom_s = data_s
 
         # =====================================================
-        # TARGET: Ahora son los datos con VARIACIÓN LUMÍNICA (LIME)
+        # TARGET: Processing domain-shifted data (optionally with LIME vars)
         # =====================================================
         data_t = self._get_inference_data(
             model,
             target_loader,
-            return_lime_variant=use_lime, # <-- Ahora Target usa LIME
+            return_lime_variant=use_lime,
             domain_id=1
         )
 
         if use_lime:
-            y_t, _, _, feat_t, imgs_t, lime_t, dom_t = data_t # <-- Extraemos lime_t
+            y_t, _, _, feat_t, imgs_t, lime_t, dom_t = data_t  # Extracts lime_t
         else:
             y_t, _, _, feat_t, imgs_t, dom_t = data_t
 
-        # Concatenaciones
+        # Aggregation of domain data
         features = np.concatenate([feat_s, feat_t])
         labels = np.concatenate([y_s, y_t])
         domains = np.concatenate([dom_s, dom_t])
-
         images_tensor = torch.cat([imgs_s, imgs_t])
 
-        if use_lime:
-            # Rellenamos con -1 el Source y ponemos los valores reales en el Target
-            lime_variants = np.concatenate([np.full(len(y_s), -1), lime_t])
-
-        # Reducción de dimensionalidad
+        # Dimension reduction
         reducer = umap.UMAP(
             n_neighbors=30,
             min_dist=0.3,
             metric='cosine',
             random_state=42
         )
-
         embedding = reducer.fit_transform(features)
 
+        # Plot setup
         plt.figure(figsize=(16, 12))
         ax = plt.gca()
         cmap = plt.get_cmap('tab10')
-
         markers = {0: 'o', 1: '^'}
 
         for domain in [0, 1]:
             idx = domains == domain
-
             plt.scatter(
                 embedding[idx, 0],
                 embedding[idx, 1],
@@ -257,17 +341,16 @@ class BananaVisualizer:
             )
 
         # =====================================================
-        # Plot representative images
+        # Plot representative image overlays
         # =====================================================
         shown_positions = np.array([[1000.0, 1000.0]])
 
         for i in range(len(embedding)):
-
             curr_pos = embedding[i]
             dist = np.sum((curr_pos - shown_positions) ** 2, axis=1)
 
+            # Check if position is sufficiently far from previously plotted images
             if np.min(dist) > min_dist_plots:
-
                 shown_positions = np.r_[shown_positions, [curr_pos]]
 
                 img_rgb = self._denormalize(images_tensor[i])
@@ -281,21 +364,15 @@ class BananaVisualizer:
                         linewidth=2
                     )
                 )
-
                 ax.add_artist(ab)
 
         # =====================================================
-        # LIME Structure + Pearson Correlation
+        # LIME Variation Analysis + Pearson Correlation
         # =====================================================
         if use_lime:
-
-            # -------------------------------------------------
-            # Pearson Correlation (LIME vs UMAP Axes)
-            # -------------------------------------------------
-            # Ahora calculamos la correlación apuntando al dominio TARGET (1)
+            # Analyze correlation between lighting variation and UMAP latent axes
             tgt_idx = domains == 1 
-
-            lime_values = lime_t.astype(float) # <-- Usamos lime_t
+            lime_values = lime_t.astype(float)
             umap_x = embedding[tgt_idx, 0]
             umap_y = embedding[tgt_idx, 1]
 
@@ -311,7 +388,7 @@ class BananaVisualizer:
                 print("Pearson correlation could not be computed.")
 
         # =====================================================
-        # Legends
+        # Visualization Aesthetics and Legend
         # =====================================================
         domain_legend = [
             Line2D([0], [0], marker='o', color='w',
@@ -329,7 +406,6 @@ class BananaVisualizer:
         ]
 
         ax.legend(handles=domain_legend + class_legend, loc='upper right')
-
         plt.title("Latent Space Structure (Domain • Class" + (" • LIME" if use_lime else "") + ")")
         plt.axis("off")
 

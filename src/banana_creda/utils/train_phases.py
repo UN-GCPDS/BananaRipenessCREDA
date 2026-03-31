@@ -8,8 +8,7 @@ def get_training_phase(
     phase: int, 
     config: TrainConfig
 ) -> Tuple[optim.Optimizer, Optional[optim.lr_scheduler.LRScheduler]]:
-    """
-    Applies gradual unfreezing to the model based on the specified training phase.
+    """Applies gradual unfreezing to the model based on the specified training phase.
     
     This function implements a curriculum learning strategy by progressively 
     unfreezing layers from the top (classifier) down to the bottom (encoder) 
@@ -17,15 +16,15 @@ def get_training_phase(
 
     Args:
         model (nn.Module): The neural network model to be configured. Must have 
-                           `encoder` (nn.Sequential) and `classifier` attributes.
-        phase (int): The current training phase (1 to 4). Any other value defaults 
-                     to unfreezing the entire model.
-        config (TrainConfig): Configuration object containing learning rates and scheduler gamma.
+            `encoder` (nn.Sequential) and `classifier` attributes.
+        phase (int): The current training phase (1 to 4).
+        config (TrainConfig): Configuration object containing learning rates and 
+            scheduler hyperparameters.
 
     Returns:
-        Tuple[optim.Optimizer, Optional[optim.lr_scheduler.LRScheduler]]: 
-            A tuple containing the configured Adam optimizer and the learning rate 
-            scheduler (which may be None for earlier phases).
+        Tuple[optim.Optimizer, Optional[LRScheduler]]: 
+            A tuple containing the configured Adam optimizer and an optional 
+            learning rate scheduler.
     """
     scheduler = None
     
@@ -71,7 +70,7 @@ def get_training_phase(
 
             added_params: Set[nn.Parameter] = set()
 
-            # Unfreeze the last block (equivalent to ResNet layer4)
+            # Unfreeze the last block (index -1)
             last_block_params = list(model.encoder[-1].parameters())
             for param in last_block_params:
                 param.requires_grad = True
@@ -103,13 +102,13 @@ def get_training_phase(
 
             added_params: Set[nn.Parameter] = set()
 
-            # Unfreeze the penultimate block (equivalent to ResNet layer3)
+            # Unfreeze the penultimate block (index -2)
             penultimate_block_params = list(model.encoder[-2].parameters())
             for param in penultimate_block_params:
                 param.requires_grad = True
                 added_params.add(param)
 
-            # Unfreeze the last block
+            # Unfreeze the last block (index -1)
             last_block_params = list(model.encoder[-1].parameters())
             for param in last_block_params:
                 param.requires_grad = True
@@ -136,13 +135,15 @@ def get_training_phase(
             optimizer = optim.Adam(params)
             scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=config.gamma)
         
-        case False:
+        case _:
             # Default fallback: Unfreeze the entire model for full fine-tuning.
             for param in model.parameters():
                 param.requires_grad = True
             
-            # Using the finetune LR for the whole model to prevent catastrophic forgetting
+            # Using the fine-tuning LR for the whole model to prevent catastrophic forgetting.
             optimizer = optim.Adam(model.parameters(), lr=config.lr)
             scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=config.gamma)
+
+    return optimizer, scheduler
 
     return optimizer, scheduler

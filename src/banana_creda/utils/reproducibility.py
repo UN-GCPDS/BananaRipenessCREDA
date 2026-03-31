@@ -3,16 +3,21 @@ import numpy as np
 import random
 import os
 
-def set_seed(seed: int = 42):
+def set_seed(seed: int = 42) -> None:
+    """Sets random seeds for reproducibility across different libraries.
+
+    This function fixes seeds for Python's random module, NumPy, and PyTorch 
+    (including CUDA). It also configures CuDNN for deterministic behavior.
+
+    Args:
+        seed (int): The seed value to use for all random number generators.
     """
-    Fixes seeds for reproducibility of experiments.
-    """
-    # 1. Basic seeds of Python and Numpy
+    # 1. Basic seeds for Python and NumPy
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
     np.random.seed(seed)
     
-    # 2. PyTorch seeds (Requested)
+    # 2. PyTorch seeds
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed) 

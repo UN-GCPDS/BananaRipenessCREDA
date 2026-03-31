@@ -11,9 +11,23 @@ from banana_creda.utils.train_phases import get_training_phase
 from banana_creda.utils.metrics import MetricTracker
 
 class TransferTrainer:
-    """
-    Trainer class for transfer learning models without Domain Adaptation.
-    Handles the transfer training loop, validation, metric tracking, and best checkpoint saving.
+    """Trainer class for transfer learning experiments without Domain Adaptation.
+
+    Handles multi-phase training (e.g., freezing/unfreezing layers), validation, 
+    metric tracking, and best checkpoint recovery.
+
+    Attributes:
+        model (nn.Module): The neural network model.
+        train_loader (DataLoader): DataLoader for training data.
+        val_loader (DataLoader): DataLoader for validation data.
+        criterion (nn.Module): Loss function.
+        config (Any): Configuration object containing training hyperparameters.
+        device (torch.device): Computing device.
+        best_val_acc (float): Highest validation accuracy achieved.
+        best_model_weights (Optional[Dict[str, torch.Tensor]]): State dict of the best model.
+        history (Dict[str, List[float]]): Record of losses and accuracies over epochs.
+        optimizer (optim.Optimizer): Optimization algorithm (initialized in phases).
+        scheduler (Optional[LRScheduler]): Learning rate scheduler (initialized in phases).
     """
 
     def __init__(
@@ -25,6 +39,16 @@ class TransferTrainer:
         config: Any,
         device: torch.device
     ) -> None:
+        """Initializes the TransferTrainer.
+
+        Args:
+            model (nn.Module): The model to train.
+            train_loader (DataLoader): Source of training samples.
+            val_loader (DataLoader): Source of validation samples.
+            criterion (nn.Module): Loss criterion.
+            config (Any): Training configuration object.
+            device (torch.device): Device to run training on.
+        """
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -37,26 +61,43 @@ class TransferTrainer:
         self.best_model_weights: Optional[Dict[str, torch.Tensor]] = copy.deepcopy(model.state_dict())
         
         # Metrics history
-        self.history: Dict[str, list] = {
+        self.history: Dict[str, List[float]] = {
             'train_loss': [],
             'train_acc': [],
             'val_loss': [],
             'val_acc': []
         }
+        
+        # Placeholders for phase-specific objects
+        self.optimizer: optim.Optimizer = None
+        self.scheduler: Optional[optim.lr_scheduler.LRScheduler] = None
 
     def _format_time(self, seconds: float) -> str:
-        """Converts seconds to MM:SS format."""
+        """Converts seconds into a readable MM:SS format.
+
+        Args:
+            seconds (float): Total seconds to format.
+
+        Returns:
+            str: Formatted time string (MM:SS).
+        """
         m, s = divmod(int(seconds), 60)
         return f"{m:02d}:{s:02d}"
 
-    def fit(self) -> Tuple[nn.Module, Dict[str, list]]:
-        
+    def fit(self) -> Tuple[nn.Module, Dict[str, List[float]]]:
+        """Executes the full multi-phase training and validation process.
+
+        Returns:
+            Tuple[nn.Module, Dict[str, List[float]]]: 
+                The model with the best validation weights and the training history.
+        """
         epochs: int = self.config.transfer_epochs
         src_classes = self.train_loader.dataset.classes
         epochs_phases = self.config.epochs_phases
         total_train_start = time.time()
 
         for epoch in range(epochs):
+            # Check if a new training phase should start
             if epoch in epochs_phases:
                 phase_idx = epochs_phases.index(epoch) + 1
                 self.optimizer, self.scheduler = get_training_phase(self.model, phase_idx, self.config)
@@ -73,9 +114,9 @@ class TransferTrainer:
             formatted_time = self._format_time(epoch_time)
             print(f"[Train] Time: {formatted_time} | Loss: {train_loss:.4f} | Acc: {train_acc:.4f}")
             
-            # 2. Validation Phase (Utilizando MetricTracker y evaluate)
+            # 2. Validation Phase (using MetricTracker and evaluate)
             val_acc = self.evaluate(self.val_loader, src_classes, "Val")
-            self.history['val_loss'].append(0.0) # Se puede omitir o calcular si necesitas plotearlo
+            self.history['val_loss'].append(0.0)  # Can be calculated if needed
             self.history['val_acc'].append(val_acc)
             
             # 3. Learning Rate Scheduling
@@ -101,19 +142,21 @@ class TransferTrainer:
         return self.model, self.history
 
     def _train_epoch(self) -> Tuple[float, float, float]:
-        """
-        Runs a single epoch of training.
-        Returns: Average loss, Average Accuracy, Epoch time in seconds.
+        """Runs a single epoch of transfer training.
+
+        Returns:
+            Tuple[float, float, float]: 
+                Average batch loss, overall accuracy, and total epoch time in seconds.
         """
         self.model.train()
         running_loss: float = 0.0
         
-        # Para el cálculo de accuracy con MetricTracker
-        all_preds = []
-        all_labels = []
+        # Accumulators for MetricTracker
+        all_preds: List[torch.Tensor] = []
+        all_labels: List[torch.Tensor] = []
         
         epoch_start = time.time()
-        pbar = tqdm(self.train_loader, desc="Training (Baseline)", leave=False)
+        pbar = tqdm(self.train_loader, desc="Training (Transfer)", leave=False)
         
         for batch in pbar:
             imgs: torch.Tensor = batch[0].to(self.device)
@@ -133,7 +176,7 @@ class TransferTrainer:
             batch_size: int = imgs.size(0)
             running_loss += loss.item() * batch_size
             
-            # Guardamos predicciones para MetricTracker
+            # Store predictions for accuracy calculation
             preds = torch.argmax(logits, dim=1)
             all_preds.append(preds.detach())
             all_labels.append(labels.detach())
@@ -144,7 +187,7 @@ class TransferTrainer:
         epoch_time = time.time() - epoch_start
         epoch_loss: float = running_loss / len(self.train_loader.dataset)
         
-        # Calculamos el accuracy global con MetricTracker
+        # Calculate global accuracy using MetricTracker
         num_classes = len(self.train_loader.dataset.classes)
         overall_acc, _ = MetricTracker.compute_accuracy(
             torch.cat(all_preds), torch.cat(all_labels), num_classes
@@ -154,12 +197,19 @@ class TransferTrainer:
 
     @torch.no_grad()
     def evaluate(self, loader: DataLoader, class_names: List[str], prefix: str = "Val") -> float:
-        """
-        Runs validation and prints the summary using MetricTracker.
-        Returns the overall accuracy.
+        """Evaluates the model on a given dataset.
+
+        Args:
+            loader (DataLoader): The dataset to evaluate.
+            class_names (List[str]): List of human-readable class names.
+            prefix (str): Label for the evaluation phase.
+
+        Returns:
+            float: Overall classification accuracy.
         """
         self.model.eval()
-        all_preds, all_labels = [], []
+        all_preds: List[torch.Tensor] = []
+        all_labels: List[torch.Tensor] = []
         
         pbar = tqdm(loader, desc=f"Evaluating ({prefix})", leave=False)
         
@@ -170,12 +220,12 @@ class TransferTrainer:
             # Forward pass
             logits: torch.Tensor = self.model(imgs, mode='class')
             
-            # Guardamos predicciones
+            # Store predictions
             preds = torch.argmax(logits, dim=1)
             all_preds.append(preds)
             all_labels.append(labels)
 
-        # Usar MetricTracker
+        # Compute metrics via MetricTracker
         overall_acc, per_class_acc = MetricTracker.compute_accuracy(
             torch.cat(all_preds), torch.cat(all_labels), len(class_names)
         )

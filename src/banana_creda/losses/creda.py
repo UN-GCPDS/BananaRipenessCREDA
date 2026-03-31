@@ -5,25 +5,42 @@ from typing import Dict, Tuple, Union
 from banana_creda.config import TrainConfig
 
 class CREDALoss(nn.Module):
-    """
-    Advanced Implementation of CREDA (Class-Regularized Entropy Domain Adaptation).
-        
-    Improvements:
-    - Uncertainty weighting based on Rényi entropy of order 2.
-    - Bit normalization (log2) for theoretical consistency.
-    - Improved numerical stability in kernel calculation.
+    """Advanced Implementation of CREDA (Class-Regularized Entropy Domain Adaptation).
+
+    This loss aligns source and target feature distributions using Rényi 
+    mutual information computed over class-conditional kernel matrices.
+
+    Attributes:
+        config (TrainConfig): Training configuration.
+        num_classes (int): Number of target classes.
+        eps (float): Small constant for numerical stability.
+        lambda_creda (float): Weight for the CREDA alignment loss.
+        log2 (torch.Tensor): Precomputed log(2) for entropy normalization.
     """
     def __init__(self, config: TrainConfig, num_classes: int):
+        """Initializes the CREDALoss module.
+
+        Args:
+            config (TrainConfig): Configuration object containing hyperparameters.
+            num_classes (int): Number of output classes for pseudo-labeling.
+        """
         super(CREDALoss, self).__init__()
         self.config = config
         self.num_classes = num_classes
         self.eps = 1e-8
-        # Constant for log2
-        self.lambda_creda = config.lambda_creda
+        self.lambda_creda = config.lambda_creda if config.lambda_creda is not None else 0.0
         self.register_buffer("log2", torch.log(torch.tensor(2.0)))
 
     def _compute_sigma(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Median heuristic for dynamic sigma (optimized with cdist)."""
+        """Computes the dynamic bandwidth (sigma) using the median heuristic.
+
+        Args:
+            x (torch.Tensor): Feature matrix from domain A.
+            y (torch.Tensor): Feature matrix from domain B.
+
+        Returns:
+            torch.Tensor: Scalar sigma value.
+        """
         combined = torch.cat([x, y], dim=0)
         dist_sq = torch.cdist(combined, combined, p=2) ** 2
         triu_indices = torch.triu_indices(dist_sq.size(0), dist_sq.size(0), offset=1)
@@ -31,12 +48,30 @@ class CREDALoss(nn.Module):
         return torch.sqrt(torch.median(non_diag) + 1e-6)
 
     def _rbf_kernel(self, x: torch.Tensor, y: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
-        """Gaussian RBF kernel with clamping for stability."""
+        """Computes the Gaussian RBF kernel matrix.
+
+        Args:
+            x (torch.Tensor): First feature matrix.
+            y (torch.Tensor): Second feature matrix.
+            sigma (torch.Tensor): Kernel bandwidth.
+
+        Returns:
+            torch.Tensor: Kernel matrix of size [len(x), len(y)].
+        """
         dist_sq = torch.cdist(x, y, p=2) ** 2
         return torch.exp(-dist_sq / (2 * sigma ** 2 + self.eps))
 
     def _renyi_entropy_order_2(self, K: torch.Tensor) -> torch.Tensor:
-        """H2(A) = -log2(tr(A^2)) where A is the normalized kernel matrix."""
+        """Calculates the Rényi entropy of order 2 from a kernel matrix.
+
+        Formula: H2(A) = -log2(tr(A^2)) where A is the trace-normalized kernel matrix.
+
+        Args:
+            K (torch.Tensor): Kernel matrix.
+
+        Returns:
+            torch.Tensor: Scalar entropy value in bits.
+        """
         if K.size(0) == 0:
             return torch.tensor(0.0, device=K.device)
         # Normalization by trace to obtain density matrix
@@ -53,7 +88,19 @@ class CREDALoss(nn.Module):
         features_t: torch.Tensor,
         logits_t: torch.Tensor,
     ) -> Tuple[torch.Tensor, Dict[str, float]]:
-        
+        """Performs the forward pass to compute supervised and CREDA alignment losses.
+
+        Args:
+            features_s (torch.Tensor): Deep features of source samples.
+            logits_s (torch.Tensor): Logits of source samples.
+            labels_s (torch.Tensor): Ground truth labels for source samples.
+            features_t (torch.Tensor): Deep features of target samples.
+            logits_t (torch.Tensor): Logits of target samples.
+
+        Returns:
+            Tuple[torch.Tensor, Dict[str, float]]: 
+                Total loss and a dictionary with individual loss components.
+        """
         # 1. Supervised Classification Loss (Source)
         loss_cls = F.cross_entropy(logits_s, labels_s)
 
@@ -64,7 +111,7 @@ class CREDALoss(nn.Module):
         loss_creda = torch.tensor(0.0, device=features_s.device)
         pseudo_labels_t = torch.argmax(probs_t.detach(), dim=1)
         
-        # --- NEW UNCERTAINTY WEIGHTING (RENYI) ---
+        # --- UNCERTAINTY WEIGHTING (RENYI) ---
         uncertainty_weights = None
         if self.config.use_uncertainty:
             # H2 of probability vector: -log2(sum(p^2))
@@ -75,7 +122,6 @@ class CREDALoss(nn.Module):
             h2_max = torch.log(torch.tensor(float(self.num_classes))) / self.log2
             # Confidence weight: 1 - (Entropy normalized)
             uncertainty_weights = 1.0 - (h2_probs / (h2_max + self.eps))
-        # ---------------------------------------------------
 
         creda_accum = 0.0
         valid_classes = 0
@@ -90,8 +136,10 @@ class CREDALoss(nn.Module):
             f_s_c, f_t_c = features_s[mask_s], features_t[mask_t]
             
             # Adaptive sigma per class
-            sigma_val = self._compute_sigma(f_s_c, f_t_c) if self.config.sigma == 'auto' \
-                        else torch.tensor(float(self.config.sigma), device=features_s.device)
+            if self.config.sigma == 'auto':
+                sigma_val = self._compute_sigma(f_s_c, f_t_c)
+            else:
+                sigma_val = torch.tensor(float(self.config.sigma), device=features_s.device)
 
             K_s = self._rbf_kernel(f_s_c, f_s_c, sigma_val)
             K_t = self._rbf_kernel(f_t_c, f_t_c, sigma_val)
@@ -107,7 +155,7 @@ class CREDALoss(nn.Module):
             row2 = torch.cat([K_st.t(), K_t], dim=1)
             K_mix = torch.cat([row1, row2], dim=0)
 
-            # Calculation of Rényi Information Mutual
+            # Calculation of Rényi Mutual Information
             h_s = self._renyi_entropy_order_2(K_s)
             h_t = self._renyi_entropy_order_2(K_t)
             h_mix = self._renyi_entropy_order_2(K_mix)

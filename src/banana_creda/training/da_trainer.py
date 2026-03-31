@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 from tqdm import tqdm # <-- Importamos tqdm
 
 from banana_creda.utils.metrics import MetricTracker
+from banana_creda.utils.formatter import format_time
 from banana_creda.config import TrainConfig
 
 class BananaTrainer:
@@ -69,18 +70,6 @@ class BananaTrainer:
             
         self.best_acc = 0.0
         self.best_model_wts = copy.deepcopy(model.state_dict())
-
-    def _format_time(self, seconds: float) -> str:
-        """Converts seconds into a readable MM:SS format.
-
-        Args:
-            seconds (float): Total seconds to format.
-
-        Returns:
-            str: Formatted time string (MM:SS).
-        """
-        m, s = divmod(int(seconds), 60)
-        return f"{m:02d}:{s:02d}"
 
     def train_epoch(self) -> Dict[str, float]:
         """Runs a single epoch of Domain Adaptation training.
@@ -187,13 +176,12 @@ class BananaTrainer:
         print(f"Config Lambda CREDA value: {self.config.lambda_creda}")
 
         for epoch in range(self.config.epochs):
-            lr_current = self.optimizer.param_groups[0]['lr']
-            print(f"\nEpoch {epoch+1}/{self.config.epochs} | LR: {lr_current:.6f}")
+            print(f"\nEpoch {epoch+1}/{self.config.epochs}")
             print("-" * 40)
 
             # 1. Train
             train_metrics = self.train_epoch()
-            formatted_time = self._format_time(train_metrics['epoch_time'])
+            formatted_time = self.format_time(train_metrics['epoch_time'])
             
             loss_total = train_metrics.get('total_loss', 0.0)
             loss_cls = train_metrics.get('loss_cls', 0.0)
@@ -235,8 +223,8 @@ class BananaTrainer:
 
         total_time = time.time() - total_train_start
         print(f"\n{' TRAINING COMPLETE ':=^50}")
-        print(f"Total Duration: {self._format_time(total_time)}")
-        print(f"Best Target Accuracy: {self.best_acc:.4f}")
+        print(f"Total Duration: {self.format_time(total_time)}")
+        print(f"Best Accuracy: {self.best_acc:.4f}")
         print("="*50)
 
         # Restore best weights before returning

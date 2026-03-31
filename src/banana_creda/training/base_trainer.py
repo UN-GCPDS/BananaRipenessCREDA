@@ -8,6 +8,7 @@ from typing import Optional, Tuple, Dict, Any, List
 from tqdm import tqdm
 
 from banana_creda.utils.metrics import MetricTracker
+from banana_creda.utils.formatter import format_time
 
 class BaselineTrainer:
     """Trainer class for baseline classification models without Domain Adaptation.
@@ -68,18 +69,6 @@ class BaselineTrainer:
             'val_acc': []
         }
 
-    def _format_time(self, seconds: float) -> str:
-        """Converts seconds into a readable MM:SS format.
-
-        Args:
-            seconds (float): Total seconds to format.
-
-        Returns:
-            str: Formatted time string (MM:SS).
-        """
-        m, s = divmod(int(seconds), 60)
-        return f"{m:02d}:{s:02d}"
-
     def fit(
         self, 
         scheduler: Optional[optim.lr_scheduler.LRScheduler] = None
@@ -98,8 +87,7 @@ class BaselineTrainer:
         total_train_start = time.time()
 
         for epoch in range(epochs):
-            lr_current = self.optimizer.param_groups[0]['lr']
-            print(f"\nEpoch {epoch+1}/{epochs} | LR: {lr_current:.6f}")
+            print(f"\nEpoch {epoch+1}/{epochs}")
             print("-" * 40)
             
             # 1. Training Phase
@@ -107,7 +95,7 @@ class BaselineTrainer:
             self.history['train_loss'].append(train_loss)
             self.history['train_acc'].append(train_acc)
             
-            formatted_time = self._format_time(epoch_time)
+            formatted_time = self.format_time(epoch_time)
             print(f"[Train] Time: {formatted_time} | Loss: {train_loss:.4f} | Acc: {train_acc:.4f}")
             
             # 2. Validation Phase (using MetricTracker and evaluate)
@@ -127,8 +115,8 @@ class BaselineTrainer:
 
         total_time = time.time() - total_train_start
         print(f"\n{' TRAINING COMPLETE ':=^50}")
-        print(f"Total Duration: {self._format_time(total_time)}")
-        print(f"Best Source Accuracy: {self.best_val_acc:.4f}")
+        print(f"Total Duration: {self.format_time(total_time)}")
+        print(f"Best Accuracy: {self.best_val_acc:.4f}")
         print("="*50)
         
         # Restore the best weights before returning

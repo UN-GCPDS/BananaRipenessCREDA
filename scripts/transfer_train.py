@@ -106,11 +106,11 @@ def run_transfer_experiment(config_path: str) -> None:
     # 7. Save the final trained weights
     save_file = Path(output_path) / "model_final.pth"
     torch.save(trained_model.state_dict(), save_file)
-    print(f"\n Experiment completed. Results saved in: {save_file}")
+    print(f"\n Experiment completed. Results saved in: {output_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Banana Transfer Training Script")
     parser.add_argument("--config", type=str, default="configs/base_experiment.yaml", help="Path to YAML config")
     args = parser.parse_args()
     
-    run_transfer_experiment(args.config)
+    run_transfer_experiment(args.config)

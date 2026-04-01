@@ -65,7 +65,8 @@ def run_experiment(config_path: str) -> None:
         target_loaders=target_loaders,
         criterion=criterion,
         optimizer=optimizer,
-        config=cfg.training
+        config=cfg.training,
+        device=device
     )
     
     print(f" Starting CREDA experiment on {device}...")

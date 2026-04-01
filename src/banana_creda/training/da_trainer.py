@@ -40,7 +40,8 @@ class BananaTrainer:
         target_loaders: Dict[str, DataLoader], 
         criterion: nn.Module, 
         optimizer: optim.Optimizer, 
-        config: TrainConfig
+        config: TrainConfig,
+        device: torch.device
     ):
         """Initializes the BananaTrainer.
 
@@ -58,7 +59,7 @@ class BananaTrainer:
         self.criterion = criterion
         self.optimizer = optimizer
         self.config = config
-        self.device = torch.device(config.device)
+        self.device = device
         
         # AMP setup
         self.use_amp = config.use_amp and (self.device.type == 'cuda')

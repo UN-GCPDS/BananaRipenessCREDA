@@ -23,12 +23,12 @@ class TransferTrainer:
         val_loader (DataLoader): DataLoader for validation data.
         criterion (nn.Module): Loss function.
         config (Any): Configuration object containing training hyperparameters.
-        device (torch.device): Computing device.
+        device (torch.device): Device to run training on (cpu/cuda).
         best_val_acc (float): Highest validation accuracy achieved.
         best_model_weights (Optional[Dict[str, torch.Tensor]]): State dict of the best model.
         history (Dict[str, List[float]]): Record of losses and accuracies over epochs.
         optimizer (optim.Optimizer): Optimization algorithm (initialized in phases).
-        scheduler (Optional[LRScheduler]): Learning rate scheduler (initialized in phases).
+        scheduler (Optional[LRScheduler]): Learning rate scheduler (initialized in phases). 
     """
 
     def __init__(
@@ -37,7 +37,7 @@ class TransferTrainer:
         train_loader: DataLoader,
         val_loader: DataLoader,
         criterion: nn.Module,
-        config: Any,
+        config: Any,    
         device: torch.device
     ) -> None:
         """Initializes the TransferTrainer.
@@ -48,7 +48,7 @@ class TransferTrainer:
             val_loader (DataLoader): Source of validation samples.
             criterion (nn.Module): Loss criterion.
             config (Any): Training configuration object.
-            device (torch.device): Device to run training on.
+            device (torch.device): Device to run training on (cpu/cuda).
         """
         self.model = model
         self.train_loader = train_loader

@@ -30,6 +30,8 @@ def run_inference(config_path: str, model_path: str, output_dir: str = None) -> 
     if output_dir is not None:
         cfg.experiment.output_dir = output_dir
 
+    if cfg.training.seed is not None:
+        set_seed(cfg.training.seed)
     device = torch.device(cfg.training.device if torch.cuda.is_available() else "cpu")
     
     # 2. Data Setup (Prioritizing Target Test data for evaluation)
@@ -57,7 +59,7 @@ def run_inference(config_path: str, model_path: str, output_dir: str = None) -> 
     model.eval()
 
     # 4. Final Evaluation and Scientific Reports
-    output_dir = cfg.experiment.output_dir / "inference"
+    output_dir = cfg.experiment.output_dir + "/inference"
     output_dir.mkdir(parents=True, exist_ok=True)
     
     viz = BananaVisualizer(device=device, output_dir=str(output_dir))

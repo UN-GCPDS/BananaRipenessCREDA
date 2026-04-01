@@ -100,21 +100,6 @@ def run_experiment(config_path: str) -> None:
     # Quantitative: ROC Curve and AUC
     viz.plot_roc_curve(trained_model, target_loaders['test'], class_names, "Target Test - ROC Curve")
     
-    # Domain Alignment: UMAP (Source vs Target)
-    viz.plot_umap(trained_model, source_loaders['test'], target_loaders['test'], "Target Test - Domain Alignment")
-    
-    # Qualitative: Latent Space with Real Images
-    viz.plot_umap_with_images(
-        model=trained_model, 
-        source_loader=source_loaders['test'], 
-        target_loader=target_loaders['test'], 
-        class_names=class_names, 
-        prefix="Target Test - Latent Space",
-        image_zoom=0.07,
-        min_dist_plots=0.45,
-        use_lime=cfg.data.use_lime_on_target,  # Pass the correct flag to the visualizer
-    )
-    
     # Save best model weights
     save_file = Path(output_path) / "model_final.pth"
     torch.save(trained_model.state_dict(), save_file)

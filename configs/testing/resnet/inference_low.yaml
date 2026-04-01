@@ -1,5 +1,6 @@
 data:
   target_data_dir: "/kaggle/input/datasets/lucasiturriago/bananaripeness/Low_Variation"
+  source_data_dir: "/kaggle/input/datasets/lucasiturriago/bananaripeness/Original"
   batch_size: 32
   img_size: 224
   num_workers: 4

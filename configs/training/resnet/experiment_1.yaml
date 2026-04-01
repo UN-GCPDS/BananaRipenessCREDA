@@ -14,9 +14,9 @@ model:
   dropout_rate: 0.2
 
 training:
-  epochs: 25
+  epochs: 20
   lr: 0.0001
-  transfer_epochs: 25
+  transfer_epochs: 20
   epochs_phases: [0,5,10,15]
   transfer_lr: 0.00001
   gamma: 0.94

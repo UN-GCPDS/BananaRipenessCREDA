@@ -26,3 +26,4 @@ experiment:
   name: "baseline_resnet_inference"
   version: 1
   output_dir: "outputs/resnet/inference_1"
+  save_results: true

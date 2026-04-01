@@ -1,12 +1,14 @@
 import torch
+import torch.nn as nn
+import torch.optim as optim
 import time
 import copy
 import math
 from itertools import cycle
 from collections import defaultdict
-from torch.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler 
 from typing import Dict, List, Optional
-from tqdm import tqdm # <-- Importamos tqdm
+from tqdm import tqdm 
 
 from banana_creda.utils.metrics import MetricTracker
 from banana_creda.utils.formatter import format_time
@@ -147,7 +149,8 @@ class BananaTrainer:
         for batch in pbar:
             imgs, labels = batch[:2]
             imgs, labels = imgs.to(self.device), labels.to(self.device)
-            logits = self.model(imgs, mode='class')
+            with autocast(device_type=self.device.type, enabled=self.use_amp):
+                logits = self.model(imgs, mode='class')
             all_preds.append(torch.max(logits, 1)[1])
             all_labels.append(labels)
 

@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from torch.amp import autocast, GradScaler 
 from typing import Optional, Tuple, Dict, Any, List
 from tqdm import tqdm
 
@@ -60,7 +61,10 @@ class BaselineTrainer:
         # State tracking
         self.best_val_acc: float = 0.0
         self.best_model_weights: Optional[Dict[str, torch.Tensor]] = copy.deepcopy(model.state_dict())
-        
+
+        # AMP setup
+        self.use_amp = config.use_amp and (self.device.type == 'cuda')
+        self.scaler = GradScaler(enabled=self.use_amp)
         # Metrics history
         self.history: Dict[str, List[float]] = {
             'train_loss': [],
@@ -147,14 +151,17 @@ class BaselineTrainer:
             labels: torch.Tensor = batch[1].to(self.device)
             
             self.optimizer.zero_grad()
+
+            with autocast(device_type=self.device.type, enabled=self.use_amp):
             
-            # Forward pass
-            logits: torch.Tensor = self.model(imgs, mode='class')
-            loss: torch.Tensor = self.criterion(logits, labels)
+                # Forward pass
+                logits: torch.Tensor = self.model(imgs, mode='class')
+                loss: torch.Tensor = self.criterion(logits, labels)
             
             # Backward pass & optimization
-            loss.backward()
-            self.optimizer.step()
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
             
             # Batch metrics
             batch_size: int = imgs.size(0)
@@ -202,7 +209,8 @@ class BaselineTrainer:
             labels: torch.Tensor = batch[1].to(self.device)
             
             # Forward pass
-            logits: torch.Tensor = self.model(imgs, mode='class')
+            with autocast(device_type=self.device.type, enabled=self.use_amp):
+                logits: torch.Tensor = self.model(imgs, mode='class')
             
             # Store predictions
             preds = torch.argmax(logits, dim=1)

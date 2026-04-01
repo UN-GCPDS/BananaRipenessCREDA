@@ -15,7 +15,7 @@ from banana_creda.data.loader import BananaDataLoader
 from banana_creda.models.backbones import BananaModel
 from banana_creda.utils.visualizer import BananaVisualizer
 from banana_creda.utils.metrics import MetricTracker
-from banana_creda.utils.utils import set_seed
+from banana_creda.utils.reproducibility import set_seed
 
 def run_inference(config_path: str, model_path: str, output_dir: str = None) -> None:
     """Runs inference and generates evaluation reports for a trained model.

@@ -6,6 +6,7 @@ import copy
 import math
 from itertools import cycle
 from collections import defaultdict
+from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler 
 from typing import Dict, List, Optional
 from tqdm import tqdm 
@@ -22,8 +23,8 @@ class BananaTrainer:
 
     Attributes:
         model (nn.Module): The neural network model.
-        source_loaders (Dict[str, DataLoader]): DataLoaders for the source domain.
-        target_loaders (Dict[str, DataLoader]): DataLoaders for the target domain.
+        source_loaders (DataLoader): DataLoaders for the source domain.
+        target_loaders (DataLoader): DataLoaders for the target domain.
         criterion (nn.Module): Loss function (usually CREDALoss).
         optimizer (optim.Optimizer): Optimization algorithm.
         config (TrainConfig): Configuration object with training hyperparameters.
@@ -36,8 +37,8 @@ class BananaTrainer:
     def __init__(
         self, 
         model: nn.Module, 
-        source_loaders: Dict[str, DataLoader], 
-        target_loaders: Dict[str, DataLoader], 
+        source_loaders: DataLoader, 
+        target_loaders: DataLoader, 
         criterion: nn.Module, 
         optimizer: optim.Optimizer, 
         config: TrainConfig,
@@ -47,8 +48,8 @@ class BananaTrainer:
 
         Args:
             model (nn.Module): The model to train.
-            source_loaders (Dict[str, DataLoader]): Source domain data loaders.
-            target_loaders (Dict[str, DataLoader]): Target domain data loaders.
+            source_loaders (DataLoader): Source domain data loaders.
+            target_loaders (DataLoader): Target domain data loaders.
             criterion (nn.Module): Loss criterion.
             optimizer (optim.Optimizer): Optimizer for parameter updates.
             config (TrainConfig): Training configuration.

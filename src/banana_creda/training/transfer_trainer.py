@@ -68,10 +68,6 @@ class TransferTrainer:
             'val_loss': [],
             'val_acc': []
         }
-        
-        # Placeholders for phase-specific objects
-        self.optimizer: optim.Optimizer = None
-        self.scheduler: Optional[optim.lr_scheduler.LRScheduler] = None
 
     def fit(self) -> Tuple[nn.Module, Dict[str, List[float]]]:
         """Executes the full multi-phase training and validation process.
@@ -82,7 +78,17 @@ class TransferTrainer:
         """
         epochs: int = self.config.transfer_epochs
         src_classes = self.train_loader.dataset.classes
-        epochs_phases = self.config.epochs_phases
+        phases = getattr(self.config, 'epochs_phases', None)
+        if (not isinstance(phases, list) or 
+            len(phases) != 4 or 
+            not all(isinstance(x, int) for x in phases)):
+            
+            print("Warning: 'epochs_phases' not valid or missing in config.")
+            print("Using default configuration: [0, 5, 10, 15]")
+            epochs_phases = [0, 5, 10, 15]
+        else:
+            epochs_phases = phases
+
         total_train_start = time.time()
 
         for epoch in range(epochs):

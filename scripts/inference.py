@@ -60,7 +60,7 @@ def run_inference(config_path: str, model_path: str, output_dir: str = None) -> 
     model.eval()
 
     # 4. Final Evaluation and Scientific Reports
-    output_dir = cfg.experiment.output_dir + "/inference"
+    output_dir = Path(cfg.experiment.output_dir + "/inference")
     output_dir.mkdir(parents=True, exist_ok=True)
     
     viz = BananaVisualizer(device=device, output_dir=str(output_dir))

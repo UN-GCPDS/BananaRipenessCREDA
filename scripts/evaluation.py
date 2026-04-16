@@ -1,5 +1,5 @@
 """
-Command-line script for running inference and evaluation on a trained model.
+Command-line script for running evaluation and evaluation on a trained model.
 
 This script loads a pre-trained model, prepares data loaders for both source 
 and target domains, performs classification on the target test set, and 
@@ -17,8 +17,8 @@ from banana_creda.utils.visualizer import BananaVisualizer
 from banana_creda.utils.metrics import MetricTracker
 from banana_creda.utils.reproducibility import set_seed
 
-def run_inference(config_path: str, model_path: str, output_dir: str = None) -> None:
-    """Runs inference and generates evaluation reports for a trained model.
+def run_evaluation(config_path: str, model_path: str, output_dir: str = None) -> None:
+    """Runs evaluation and generates evaluation reports for a trained model.
 
     Args:
         config_path (str): Path to the YAML configuration file.
@@ -60,7 +60,7 @@ def run_inference(config_path: str, model_path: str, output_dir: str = None) -> 
     model.eval()
 
     # 4. Final Evaluation and Scientific Reports
-    output_dir = Path(cfg.experiment.output_dir + "/inference")
+    output_dir = Path(cfg.experiment.output_dir + "/evaluation")
     output_dir.mkdir(parents=True, exist_ok=True)
     
     viz = BananaVisualizer(device=device, output_dir=str(output_dir))
@@ -77,18 +77,18 @@ def run_inference(config_path: str, model_path: str, output_dir: str = None) -> 
         device
     )
 
-    MetricTracker.print_full_report("Inference Run: Target Test Set", metrics, class_names)
+    MetricTracker.print_full_report("evaluation Run: Target Test Set", metrics, class_names)
     
     print("\nGenerating Advanced Visualizations...")
     
     # 1. Confusion Matrix
-    viz.plot_confusion_matrix(model, target_loaders['test'], class_names, "Inference Target Test - Confusion Matrix")
+    viz.plot_confusion_matrix(model, target_loaders['test'], class_names, "Evaluation Target Test - Confusion Matrix")
 
     # 2. ROC Curve
-    viz.plot_roc_curve(model, target_loaders['test'], class_names, "Inference Target Test - ROC Curve")
+    viz.plot_roc_curve(model, target_loaders['test'], class_names, "Evaluation Target Test - ROC Curve")
 
     # 3. Domain Alignment
-    viz.plot_umap(model, source_loaders['test'], target_loaders['test'], "Inference Target Test - Domain Alignment")
+    viz.plot_umap(model, source_loaders['test'], target_loaders['test'], "Evaluation Target Test - Domain Alignment")
     
     # 4. Qualitative Latent Space with lighting variation analysis (LIME)
     viz.plot_umap_with_images(
@@ -96,19 +96,19 @@ def run_inference(config_path: str, model_path: str, output_dir: str = None) -> 
         source_loader=source_loaders['test'], 
         target_loader=target_loaders['test'], 
         class_names=class_names, 
-        prefix="Inference Target Test - Latent Space",
+        prefix="evaluation Target Test - Latent Space",
         image_zoom=0.07,
         min_dist_plots=0.45,
         use_lime=cfg.data.use_lime_on_target,
     )
     
-    print(f"\nInference completed successfully. Results saved in: {output_dir}")
+    print(f"\nevaluation completed successfully. Results saved in: {output_dir}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Banana-CREDA Inference Script")
+    parser = argparse.ArgumentParser(description="Banana-CREDA Evaluation Script")
     parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file")
     parser.add_argument("--model", type=str, required=True, help="Path to the trained .pth model file")
     parser.add_argument("--output_dir", type=str, default=None, help="Override the output directory defined in the YAML config")
     
     args = parser.parse_args()
-    run_inference(args.config, args.model, args.output_dir)
+    run_evaluation(args.config, args.model, args.output_dir)

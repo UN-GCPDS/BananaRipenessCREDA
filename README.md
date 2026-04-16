@@ -74,12 +74,12 @@ This script will:
 4.  Save the best model to `outputs/model/experiment_1/model_final.pth`.
 5.  Generate evaluation plots (Confusion Matrix, ROC curve, UMAP) in `outputs/model/experiment_1`.
 
-### Inference
+### Evaluation
 
-To run inference on the target test set with a trained model:
+To run evaluation on the target test set with a trained model:
 
 ```bash
-python scripts/inference.py --config configs/model_experiment.yaml --model outputs/model/experiment_1/model_final.pth
+python scripts/evaluation.py --config configs/model_experiment.yaml --model outputs/model/experiment_1/model_final.pth
 ```
 
 ### Testing

@@ -30,6 +30,10 @@ dev = [
     "mypy"
 ]
 
+explain = [
+    "captum>=0.7.0"
+]
+
 [tool.pytest.ini_options]
 # Indica dónde están los tests
 testpaths = ["tests"]

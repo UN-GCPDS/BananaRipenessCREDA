@@ -22,7 +22,7 @@ from banana_creda.utils.visualizer import BananaVisualizer
 from banana_creda.utils.reproducibility import set_seed
 from banana_creda.utils.metrics import MetricTracker
 
-def run_experiment(config_path: str) -> None:
+def run_da_experiment(config_path: str) -> None:
     """Executes the Domain Adaptation experiment using the CREDA algorithm.
 
     Args:
@@ -109,4 +109,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Banana-CREDA Training Script")
     parser.add_argument("--config", type=str, default="configs/base_experiment.yaml", help="Path to YAML config")
     args = parser.parse_args()
-    run_experiment(args.config)
+    run_da_experiment(args.config)

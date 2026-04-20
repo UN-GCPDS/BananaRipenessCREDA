@@ -35,7 +35,7 @@ class GradCAM:
         Maps the model name to the recommended last structural layer for GradCAM.
         """
         if "resnet34" in self.model_name:
-            return self.model.layer4
+            return self.model.encoder.layer4
         elif "vit_b_16" in self.model_name:
             return self.model.encoder.ln
         elif "efficientnet_b0" in self.model_name:

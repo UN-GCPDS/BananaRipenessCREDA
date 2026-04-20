@@ -24,43 +24,45 @@ def representative_samples(
             - A boolean indicating if all classes were successfully found (True) 
               or if the loader exhausted before finding everything (False).
     """
-    # Pre-generate class targets for broadcasting: shape [num_classes, 1]
-    class_targets = torch.arange(num_classes).view(-1, 1)
-    
-    # Storage for found images and tracking set
+    # Storage for found images and tracking mask
     found_images: Dict[int, Tensor] = {}
     missing_classes_mask = torch.ones(num_classes, dtype=torch.bool)
+    
+    # Pre-generate targets once
+    class_targets_base = torch.arange(num_classes)
 
     for batch in loader:
-        images, labels = batch
+        # Handle cases where loader might return (img, label, ...)
+        images, labels = batch[0], batch[1]
+        device = labels.device
 
-        # 1. Vectorized comparison: [num_classes, batch_size]
-        # Only check for classes we haven't found yet to save computation
+        # 1. Vectorized comparison on the correct device
+        # class_targets: [num_classes, 1], labels: [batch_size]
+        class_targets = class_targets_base.to(device).view(-1, 1)
         is_class_present = (labels == class_targets)
         
         # 2. Filter mask to only look for 'missing' classes in this batch
-        valid_in_batch = is_class_present & missing_classes_mask.view(-1, 1)
+        valid_in_batch = is_class_present & missing_classes_mask.to(device).view(-1, 1)
         
         # 3. Find first occurrence in this batch for each missing class
-        # presence_in_batch: [num_classes] bool tensor
         presence_in_batch = valid_in_batch.any(dim=1)
         
         if presence_in_batch.any():
-            # Get the first index for each class that was found in this batch
+            # Get the first index for each class found
             indices = valid_in_batch.float().argmax(dim=1)
             
             # Extract and store images for the newly found classes
             found_indices = torch.where(presence_in_batch)[0]
             for cls_idx in found_indices.tolist():
                 img_idx = int(indices[cls_idx])
+                # Store on CPU to keep GPU memory free for the model
                 found_images[cls_idx] = images[img_idx].detach().cpu()
                 
-            # Update our tracker: remove found classes from the 'missing' mask
-            missing_classes_mask[presence_in_batch] = False
+            # Update our tracker (move presence back to CPU mask)
+            missing_classes_mask[presence_in_batch.cpu()] = False
 
-        # 4. Early exit if the 'missing' mask is all False (all found)
+        # 4. Early exit if all classes are found
         if not missing_classes_mask.any():
             return found_images, True
 
-    # If we reach here, some classes were not found in the entire loader
     return found_images, False

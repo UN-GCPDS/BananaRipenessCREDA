@@ -15,6 +15,7 @@ from banana_creda.data.loader import BananaDataLoader
 from banana_creda.models.backbones import BananaModel
 from banana_creda.utils.reproducibility import set_seed
 from banana_creda.explain.gradcam import GradCAM
+from banana_creda.explain.shap import SHAP
 from banana_creda.utils.representative_samples import representative_samples
 
 def run_explainability(config_path: str, model_path: str, output_dir: str = None) -> None:
@@ -72,11 +73,18 @@ def run_explainability(config_path: str, model_path: str, output_dir: str = None
             print(f"Note: Only found {len(samples)}/{cfg.model.num_classes} classes for {domain_name}.")
 
         # Initialize Grad-CAM
+        print(f"Generating GradCAM overlays for {domain_name}...")
+
         explainer = GradCAM(model, cfg.model.backbone)
-        
-        print(f"Generating and saving overlays for {domain_name}...")
         explainer.generate_overlays(samples, alpha=0.5, image_size=224)
-        explainer.save_overlays(str(domain_dir))
+        explainer.save_overlays(str(domain_dir / "gradcam"))
+
+        # Initialize SHAP
+        print(f"Generating SHAP overlays for {domain_name}...")
+
+        shap_explainer = SHAP(model)
+        shap_explainer.generate_overlays(samples, n_samples=10, stdevs=0.02)
+        shap_explainer.save_overlays(str(domain_dir / "shap"))
 
     print(f"\nAll explainability reports saved in: {explain_root}")
 

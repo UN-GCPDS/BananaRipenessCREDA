@@ -114,6 +114,6 @@ class GradCAM:
         out_path.mkdir(parents=True, exist_ok=True)
 
         for target_class, overlaid in self.overlays.items():
-            save_file = out_path / f"overlay_class_{target_class}.png"
+            save_file = out_path / f"gradcam_class_{target_class}.png"
             # Ensure proper range for imsave
             plt.imsave(save_file, overlaid.permute(1, 2, 0).numpy())

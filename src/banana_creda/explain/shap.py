@@ -13,15 +13,12 @@ from captum.attr import GradientShap
 class SHAP:
     """
     A wrapper for Captum's GradientShap. 
-    Computes fine-grained pixel attributions compared to a baseline distribution.
+    Uses an averaged baseline from representative samples to reduce background noise.
     """
 
     def __init__(self, model: nn.Module):
         """
         Initializes the SHAP explainer.
-
-        Args:
-            model (nn.Module): The pretrained BananaModel instance.
         """
         self.model = model
         # Get device from model parameters
@@ -29,40 +26,38 @@ class SHAP:
         self.gs = GradientShap(self.model)
         self.overlays = {}
 
-    def _generate_baselines(self, input_img: Tensor, n_baseline_samples: int = 5) -> Tensor:
+    def _generate_baselines(self, img_stack: Tensor) -> Tensor:
         """
-        Generates a baseline distribution. 
-        Commonly uses black images (zeros) or random noise.
+        Generates a baseline by averaging the 12 representative samples.
+        The average acts as a neutral reference for the specific class/environment.
         """
-        # Create a distribution of black images as the reference
-        return torch.zeros((n_baseline_samples,) + input_img.shape[1:]).to(self.device)
+        # img_stack shape: [12, 3, 224, 224] -> mean shape: [1, 3, 224, 224]
+        avg_baseline = img_stack.mean(dim=0, keepdim=True)
+        return avg_baseline.to(self.device)
 
     def generate_overlays(
         self, 
         samples: Dict[int, Tensor], 
-        n_samples: int = 5, 
-        stdevs: float = 0.01,
-        alpha: float = 0.5
+        n_samples: int = 25, 
+        stdevs: float = 0.02,
+        alpha: float = 0.4
     ) -> None:
         """
-        Computes Gradient SHAP attributions and creates overlays.
-
-        Args:
-            samples (Dict[int, Tensor]): Class indices and image tensors.
-            n_samples (int): Number of random samples for expectations.
-            stdevs (float): Noise standard deviation added to inputs.
-            alpha (float): Blending factor for the overlay.
+        Computes SHAP and overlays the heatmap on the first image of each class stack.
         """
         self.overlays = {}
-        cmap = plt.get_cmap('hot') # 'hot' or 'jet' are good for pixel attribution
+        cmap = plt.get_cmap('hot') 
 
-        for target_class, img_tensor in samples.items():
-            # 1. Prepare Input and Baselines
+        for target_class, img_stack in samples.items():
+            # 1. Prepare Input (using the first image of the 12 collected)
+            img_tensor = img_stack[0]
             input_img = img_tensor.unsqueeze(0).to(self.device).requires_grad_(True)
-            baselines = self._generate_baselines(input_img)
+            
+            # 2. Prepare Baseline (averaging the entire stack of 12)
+            baselines = self._generate_baselines(img_stack)
 
-            # 2. Compute Attribution
-            # Dimensions match input: [1, 3, 224, 224]
+            # 3. Compute Attribution
+            # n_samples increased to 25 for better expectation convergence
             attr = self.gs.attribute(
                 input_img, 
                 baselines=baselines, 
@@ -71,21 +66,18 @@ class SHAP:
                 stdevs=stdevs
             )
 
-            # 3. Process Attribution for Visualization
-            # SHAP returns [C, H, W]. We aggregate across channels (sum of absolute values)
-            # to get a single heatmap indicating 'importance' regardless of color.
+            # 4. Process Attribution (Channel Aggregation)
             attr_combined = torch.sum(torch.abs(attr), dim=1).squeeze().detach().cpu().numpy()
 
-            # 4. Normalize Heatmap
+            # 5. Normalize Heatmap
             attr_min, attr_max = attr_combined.min(), attr_combined.max()
             attr_norm = (attr_combined - attr_min) / (attr_max - attr_min + 1e-8)
             
-            heatmap = cmap(attr_norm)[..., :3]  # Drop Alpha channel
+            heatmap = cmap(attr_norm)[..., :3] 
             heatmap = torch.from_numpy(heatmap).permute(2, 0, 1).float() 
 
-            # 5. Overlay Logic
+            # 6. Overlay Logic
             img_vis = img_tensor.detach().cpu()
-            # Normalize original image to [0, 1] for blending
             img_vis = (img_vis - img_vis.min()) / (img_vis.max() - img_vis.min() + 1e-8)
             
             overlaid = (1 - alpha) * img_vis + alpha * heatmap
@@ -93,7 +85,7 @@ class SHAP:
 
     def save_overlays(self, output_dir: str) -> None:
         """
-        Saves the SHAP overlaid images to the specified directory.
+        Saves the SHAP overlaid images.
         """
         out_path = Path(output_dir)
         out_path.mkdir(parents=True, exist_ok=True)

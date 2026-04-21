@@ -72,12 +72,16 @@ class GradCAM:
     ) -> None:
         """
         Computes GradCAM and overlays the heatmap on the original images.
+        Uses the first image of the provided stack for each class.
         """
         self.overlays = {}
         cmap = plt.get_cmap('jet')
         spatial_size = (image_size, image_size)
 
-        for target_class, img_tensor in samples.items():
+        for target_class, img_stack in samples.items():
+            # Select only the first image from the stack of 12 for the overlay
+            img_tensor = img_stack[0]
+            
             # Ensure input is on the correct device
             input_img = img_tensor.unsqueeze(0).to(self.device).requires_grad_(True)
 
@@ -115,5 +119,4 @@ class GradCAM:
 
         for target_class, overlaid in self.overlays.items():
             save_file = out_path / f"gradcam_class_{target_class}.png"
-            # Ensure proper range for imsave
             plt.imsave(save_file, overlaid.permute(1, 2, 0).numpy())

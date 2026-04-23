@@ -1,0 +1,34 @@
+data:
+  source_data_dir: "/kaggle/input/datasets/lucasiturriago/bananaripeness/Original"
+  target_data_dir: "/kaggle/input/datasets/lucasiturriago/bananaripeness/Medium_Variation"
+  batch_size: 32
+  img_size: 224
+  num_workers: 4
+  imagenet_mean: [0.485, 0.456, 0.406]
+  imagenet_std: [0.229, 0.224, 0.225]
+  use_lime_on_target: True
+
+model:
+  num_classes: 4
+  pretrained: true
+  backbone: "mobilenetv3"
+  dropout_rate: 0.2
+
+training:
+  epochs: 20
+  lr: 0.0001
+  gamma: 0.94
+  warmup: true
+  warmup_epochs: 5
+  warmup_threshold: 0.9
+  lambda_creda: 1.0
+  use_uncertainty: true
+  sigma: "auto"
+  use_amp: true
+  device: "cuda"
+  seed: 42
+
+experiment:
+  name: "medium_variation_mobilenetv3_experiment"
+  version: 3
+  output_dir: "outputs/mobilenetv3/experiment_3"

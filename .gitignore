@@ -19,3 +19,4 @@ venv/
 # Kaggle / OS
 .kaggle/
 .DS_Store
+.vscode

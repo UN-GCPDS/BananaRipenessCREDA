@@ -11,26 +11,15 @@ from pathlib import Path
 from captum.attr import LayerGradCam, LayerAttribution
 
 
-class _TransposeWrapper(nn.Module):
-    """
-    Wraps a ViT EncoderBlock and transposes its output from
-    [B, N, C] → [B, C, N] so that Captum's LayerGradCam pools
-    over the channel dim (C) and preserves N as the spatial dim.
-    Without this, Captum pools over N and returns [B, 1, 768]
-    (one value per feature) instead of [B, 1, 196] (one value per token).
-    """
-    def __init__(self, block: nn.Module):
-        super().__init__()
-        self.block = block
-
-    def forward(self, x: Tensor) -> Tensor:
-        return self.block(x).transpose(1, 2)   # [B, N, C] → [B, C, N]
-
-
 class GradCAM:
     """
     A robust wrapper for Captum's LayerGradCam supporting ResNet, ViT,
     EfficientNet, and MobileNet architectures within the BananaModel framework.
+
+    For ViT, LayerGradCam cannot be used directly because EncoderBlock outputs
+    [B, N, C] (tokens-first) while Captum expects [B, C, ...] (channels-first).
+    Instead, we register manual forward/backward hooks on the last EncoderBlock
+    to capture activations and gradients, then compute GradCAM by hand.
     """
 
     def __init__(self, model: nn.Module, model_name: str):
@@ -39,71 +28,93 @@ class GradCAM:
         self.device = next(self.model.parameters()).device
 
         self.target_layer = self._get_target_layer()
-        self.lgc = LayerGradCam(self.model, self.target_layer)
+
+        # For non-ViT models, use Captum as normal
+        if "vit" not in self.model_name:
+            self.lgc = LayerGradCam(self.model, self.target_layer)
+        else:
+            self.lgc = None   # ViT uses manual hooks instead
+
         self.overlays = {}
 
     def _get_target_layer(self) -> nn.Module:
         """
         Maps the model name to the specific layer in BananaModel.encoder.
 
-        For ViT, encoder[4] = Sequential(blocks[9], blocks[10], blocks[11], LayerNorm).
-        We wrap blocks[11] (index -2) in _TransposeWrapper so Captum receives
-        [B, C, N] and pools over C, yielding [B, 1, 196] — one value per patch token.
+        ViT: encoder[4][-2] = blocks[11] (last EncoderBlock, before LayerNorm).
+             Outputs [B, N, C] = [B, 196, 768].
         """
         try:
             if "resnet" in self.model_name:
                 return self.model.encoder[4][0]
-
             elif "vit" in self.model_name:
-                # Replace encoder[4][-2] in-place with the transpose wrapper
-                # so the hooked layer produces [B, C, N] for Captum.
-                last_block = self.model.encoder[4][-2]   # EncoderBlock (blocks[11])
-                wrapped = _TransposeWrapper(last_block)
-                # Patch it into the Sequential so the forward pass still works
-                children = list(self.model.encoder[4].children())
-                children[-2] = wrapped
-                self.model.encoder[4] = nn.Sequential(*children)
-                return wrapped
-
+                return self.model.encoder[4][-2]   # EncoderBlock (blocks[11])
             elif "efficientnet" in self.model_name:
                 return self.model.encoder[4][-1]
-
             elif "mobilenet" in self.model_name:
                 return self.model.encoder[4][-1]
-
             else:
                 raise ValueError(f"Architecture {self.model_name} not supported.")
-
         except (IndexError, AttributeError) as e:
             raise ValueError(f"Could not find target layer for {self.model_name}: {e}")
 
-    def _reshape_vit_attr(self, attr: Tensor) -> Tensor:
+    def _compute_vit_gradcam(self, input_img: Tensor, target_class: int) -> Tensor:
         """
-        Reshapes ViT attribution [B, 1, N] → [B, 1, H, W].
+        Manually computes GradCAM for ViT using forward/backward hooks.
 
-        After the _TransposeWrapper, Captum returns [B, 1, 196] where
-        196 = 14x14 patch tokens (no CLS token in this model).
+        EncoderBlock outputs [B, N, C]:
+          - N = 196 patch tokens (14x14 grid, no CLS in this model)
+          - C = 768 hidden dim
+
+        GradCAM formula:
+          1. activations A: [B, N, C]
+          2. gradients  G: [B, N, C]
+          3. weights = mean(G, dim=1) → [B, C]          (pool over tokens)
+          4. cam = relu(sum(weights * A, dim=-1)) → [B, N]  (weight channels)
+          5. reshape N → 14x14, upsample to [224, 224]
         """
-        print(f"[GradCAM DEBUG] Raw ViT attr shape: {attr.shape}")
+        activations = {}
+        gradients = {}
 
-        n_tokens = attr.shape[-1]
+        def fwd_hook(module, inp, out):
+            activations['value'] = out  # [B, N, C]
+
+        def bwd_hook(module, grad_in, grad_out):
+            gradients['value'] = grad_out[0]  # [B, N, C]
+
+        fwd_handle = self.target_layer.register_forward_hook(fwd_hook)
+        bwd_handle = self.target_layer.register_full_backward_hook(bwd_hook)
+
+        try:
+            self.model.zero_grad()
+            output = self.model(input_img)                        # [B, num_classes]
+            score = output[0, target_class]
+            score.backward()
+        finally:
+            fwd_handle.remove()
+            bwd_handle.remove()
+
+        A = activations['value']   # [B, N, C]
+        G = gradients['value']     # [B, N, C]
+
+        # Pool gradients over token dim → importance weight per channel
+        weights = G.mean(dim=1)    # [B, C]
+
+        # Weighted sum over channels → one scalar per token
+        cam = (weights.unsqueeze(1) * A).sum(dim=-1)   # [B, N]
+        cam = torch.relu(cam)                           # ReLU
+
+        # Reshape flat token sequence → 2D spatial grid
+        n_tokens = cam.shape[-1]
         grid_size = int(n_tokens ** 0.5)
-
-        # Strip CLS token if present (sequence not a perfect square)
-        if grid_size * grid_size != n_tokens:
-            attr = attr[:, :, 1:]
-            n_tokens = attr.shape[-1]
-            grid_size = int(n_tokens ** 0.5)
-
         if grid_size * grid_size != n_tokens:
             raise ValueError(
-                f"ViT attribution length {n_tokens} is not a perfect square "
-                f"after stripping the CLS token. Got {attr.shape}."
+                f"Cannot reshape {n_tokens} tokens into a square grid. "
+                f"Expected a perfect square (e.g. 196 = 14x14)."
             )
-
-        attr = attr.reshape(attr.shape[0], 1, grid_size, grid_size)
-        print(f"[GradCAM DEBUG] Reshaped ViT attr: {attr.shape}")
-        return attr
+        cam = cam.reshape(cam.shape[0], 1, grid_size, grid_size)  # [B, 1, 14, 14]
+        print(f"[GradCAM DEBUG] ViT CAM shape before upsample: {cam.shape}")
+        return cam
 
     def generate_overlays(
         self,
@@ -123,26 +134,27 @@ class GradCAM:
             img_tensor = img_stack[0]
             input_img = img_tensor.unsqueeze(0).to(self.device).requires_grad_(True)
 
-            # 1. Compute attribution
-            attr = self.lgc.attribute(input_img, target=target_class, relu_attributions=True)
-
-            # 2. Reshape ViT tokens → spatial grid [B, 1, 14, 14]
+            # 1. Compute attribution map [B, 1, H, W]
             if "vit" in self.model_name:
-                attr = self._reshape_vit_attr(attr)
+                attr = self._compute_vit_gradcam(input_img, target_class)
+            else:
+                attr = self.lgc.attribute(
+                    input_img, target=target_class, relu_attributions=True
+                )
 
-            # 3. Upsample to original image size
+            # 2. Upsample to original image size
             upsampled_attr = LayerAttribution.interpolate(
                 attr, spatial_size, interpolate_mode='bilinear'
             ).squeeze().detach().cpu().numpy()
 
-            # 4. Normalize heatmap to [0, 1]
+            # 3. Normalize heatmap to [0, 1]
             attr_min, attr_max = upsampled_attr.min(), upsampled_attr.max()
             upsampled_attr = (upsampled_attr - attr_min) / (attr_max - attr_min + 1e-8)
 
             heatmap = cmap(upsampled_attr)[..., :3]   # drop alpha → [H, W, 3]
             heatmap = torch.from_numpy(heatmap).permute(2, 0, 1).float()
 
-            # 5. Blend heatmap with original image
+            # 4. Blend heatmap with original image
             img_vis = img_tensor.detach().cpu()
             img_vis = (img_vis - img_vis.min()) / (img_vis.max() - img_vis.min() + 1e-8)
 

@@ -53,17 +53,6 @@ class GradCAM:
         except (IndexError, AttributeError) as e:
             raise ValueError(f"Could not find target layer for {self.model_name}: {e}")
 
-    def _reshape_transform(self, attr: Tensor) -> Tensor:
-        """
-        Reshapes ViT tokens back into a spatial grid.
-        """
-        if "vit" in self.model_name:
-            # Captum returns [Batch, 1, 197] for the LayerNorm layer
-            # 197 tokens = 1 CLS + 196 (14x14 patches)
-            if attr.shape[-1] == 197:
-                attr = attr[:, :, 1:].reshape(attr.shape[0], 1, 14, 14)
-        return attr
-
     def generate_overlays(
         self, 
         samples: Dict[int, Tensor], 
@@ -87,10 +76,13 @@ class GradCAM:
 
             # 1. Compute Attribution
             attr = self.lgc.attribute(input_img, target=target_class, relu_attributions=True)
-            
-            # 2. Architecture-specific reshaping (for ViT)
-            attr = self._reshape_transform(attr)
-            
+
+            # 2. Architecture-specific reshaping (for ViT):
+            #    Captum returns [B, 1, 197] from the LayerNorm — a sequence, not a spatial grid.
+            #    Drop the CLS token and reshape into [B, 1, 14, 14] BEFORE interpolation.
+            if "vit" in self.model_name:
+                attr = attr[:, :, 1:].reshape(attr.shape[0], 1, 14, 14)
+
             # 3. Upsample to original image size
             upsampled_attr = LayerAttribution.interpolate(
                 attr, spatial_size, interpolate_mode='bilinear'

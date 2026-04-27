@@ -5,26 +5,39 @@ import torch
 import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Dict, Tuple, Optional
+from typing import Dict
 from torch import Tensor
-from torchvision import models
 from pathlib import Path
 from captum.attr import LayerGradCam, LayerAttribution
 
+
+class _TransposeWrapper(nn.Module):
+    """
+    Wraps a ViT EncoderBlock and transposes its output from
+    [B, N, C] → [B, C, N] so that Captum's LayerGradCam pools
+    over the channel dim (C) and preserves N as the spatial dim.
+    Without this, Captum pools over N and returns [B, 1, 768]
+    (one value per feature) instead of [B, 1, 196] (one value per token).
+    """
+    def __init__(self, block: nn.Module):
+        super().__init__()
+        self.block = block
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.block(x).transpose(1, 2)   # [B, N, C] → [B, C, N]
+
+
 class GradCAM:
     """
-    A robust wrapper for Captum's LayerGradCam supporting ResNet, ViT, 
+    A robust wrapper for Captum's LayerGradCam supporting ResNet, ViT,
     EfficientNet, and MobileNet architectures within the BananaModel framework.
     """
 
     def __init__(self, model: nn.Module, model_name: str):
-        """
-        Initializes the explainer by identifying the appropriate target layer.
-        """
         self.model = model
         self.model_name = model_name.lower()
         self.device = next(self.model.parameters()).device
-        
+
         self.target_layer = self._get_target_layer()
         self.lgc = LayerGradCam(self.model, self.target_layer)
         self.overlays = {}
@@ -33,57 +46,59 @@ class GradCAM:
         """
         Maps the model name to the specific layer in BananaModel.encoder.
 
-        For ViT we must hook the last transformer block (encoder[4][-2], i.e.
-        blocks[11]), NOT the final LayerNorm. The LayerNorm outputs [B, 768]
-        after Captum's gradient pooling, which has no spatial structure.
-        blocks[11] outputs [B, 197, 768] — 197 tokens (1 CLS + 14x14 patches)
-        that can be reshaped into a spatial heatmap.
+        For ViT, encoder[4] = Sequential(blocks[9], blocks[10], blocks[11], LayerNorm).
+        We wrap blocks[11] (index -2) in _TransposeWrapper so Captum receives
+        [B, C, N] and pools over C, yielding [B, 1, 196] — one value per patch token.
         """
         try:
             if "resnet" in self.model_name:
-                # encoder[4] is nn.Sequential(layer4, avgpool)
                 return self.model.encoder[4][0]
+
             elif "vit" in self.model_name:
-                # encoder[4] is nn.Sequential(blocks[9], blocks[10], blocks[11], ln)
-                # Hook blocks[11] (index -2), which outputs [B, 197, 768]
-                return self.model.encoder[4][-2]
+                # Replace encoder[4][-2] in-place with the transpose wrapper
+                # so the hooked layer produces [B, C, N] for Captum.
+                last_block = self.model.encoder[4][-2]   # EncoderBlock (blocks[11])
+                wrapped = _TransposeWrapper(last_block)
+                # Patch it into the Sequential so the forward pass still works
+                children = list(self.model.encoder[4].children())
+                children[-2] = wrapped
+                self.model.encoder[4] = nn.Sequential(*children)
+                return wrapped
+
             elif "efficientnet" in self.model_name:
-                # encoder[4] is nn.Sequential(blocks 7-8, conv_head)
                 return self.model.encoder[4][-1]
+
             elif "mobilenet" in self.model_name:
-                # encoder[4] is nn.Sequential(blocks 13-16, conv_head)
                 return self.model.encoder[4][-1]
+
             else:
                 raise ValueError(f"Architecture {self.model_name} not supported.")
+
         except (IndexError, AttributeError) as e:
             raise ValueError(f"Could not find target layer for {self.model_name}: {e}")
 
     def _reshape_vit_attr(self, attr: Tensor) -> Tensor:
         """
-        Reshapes a ViT attribution tensor into a 2D spatial grid [B, 1, H, W].
+        Reshapes ViT attribution [B, 1, N] → [B, 1, H, W].
 
-        LayerGradCam on a transformer block returns [B, 1, N] where N=197
-        (1 CLS token + 14x14=196 patch tokens for vit_b_16).
-        We drop the CLS token and reshape patches into a square grid.
+        After the _TransposeWrapper, Captum returns [B, 1, 196] where
+        196 = 14x14 patch tokens (no CLS token in this model).
         """
         print(f"[GradCAM DEBUG] Raw ViT attr shape: {attr.shape}")
 
-        if attr.dim() != 3:
-            raise ValueError(f"Expected 3D ViT attribution [B, 1, N], got {attr.shape}")
-
         n_tokens = attr.shape[-1]
-
-        # Strip CLS token if sequence length is not a perfect square
         grid_size = int(n_tokens ** 0.5)
+
+        # Strip CLS token if present (sequence not a perfect square)
         if grid_size * grid_size != n_tokens:
-            attr = attr[:, :, 1:]          # drop CLS → [B, 1, 196]
+            attr = attr[:, :, 1:]
             n_tokens = attr.shape[-1]
             grid_size = int(n_tokens ** 0.5)
 
         if grid_size * grid_size != n_tokens:
             raise ValueError(
-                f"ViT attribution length {n_tokens} is not a perfect square after "
-                f"stripping the CLS token. Cannot reshape into a spatial grid."
+                f"ViT attribution length {n_tokens} is not a perfect square "
+                f"after stripping the CLS token. Got {attr.shape}."
             )
 
         attr = attr.reshape(attr.shape[0], 1, grid_size, grid_size)
@@ -111,7 +126,7 @@ class GradCAM:
             # 1. Compute attribution
             attr = self.lgc.attribute(input_img, target=target_class, relu_attributions=True)
 
-            # 2. Reshape ViT sequence tokens → spatial grid [B, 1, 14, 14]
+            # 2. Reshape ViT tokens → spatial grid [B, 1, 14, 14]
             if "vit" in self.model_name:
                 attr = self._reshape_vit_attr(attr)
 

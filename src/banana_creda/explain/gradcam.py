@@ -42,7 +42,7 @@ class GradCAM:
         Maps the model name to the specific layer in BananaModel.encoder.
 
         ViT: encoder[4][-2] = blocks[11] (last EncoderBlock, before LayerNorm).
-             Outputs [B, N, C] = [B, 196, 768].
+             Outputs [B, N, C] where N is 196 (no CLS) or 197 (with CLS).
         """
         try:
             if "resnet" in self.model_name:
@@ -62,16 +62,16 @@ class GradCAM:
         """
         Manually computes GradCAM for ViT using forward/backward hooks.
 
-        EncoderBlock outputs [B, N, C]:
-          - N = 196 patch tokens (14x14 grid, no CLS in this model)
+        EncoderBlock outputs [B, N, C] where:
+          - N = 197 (1 CLS + 196 patch tokens) or 196 (no CLS)
           - C = 768 hidden dim
 
         GradCAM formula:
-          1. activations A: [B, N, C]
-          2. gradients  G: [B, N, C]
-          3. weights = mean(G, dim=1) → [B, C]          (pool over tokens)
-          4. cam = relu(sum(weights * A, dim=-1)) → [B, N]  (weight channels)
-          5. reshape N → 14x14, upsample to [224, 224]
+          1. activations A: [B, N, C]  — strip CLS if present → [B, 196, C]
+          2. gradients  G: [B, N, C]  — strip CLS if present → [B, 196, C]
+          3. weights = mean(G, dim=1) → [B, C]           (pool over tokens)
+          4. cam = relu(sum(weights * A, dim=-1)) → [B, N] (weight channels)
+          5. reshape N=196 → 14x14, upsample to [224, 224]
         """
         activations = {}
         gradients = {}
@@ -87,7 +87,7 @@ class GradCAM:
 
         try:
             self.model.zero_grad()
-            output = self.model(input_img)                        # [B, num_classes]
+            output = self.model(input_img)          # [B, num_classes]
             score = output[0, target_class]
             score.backward()
         finally:
@@ -97,24 +97,33 @@ class GradCAM:
         A = activations['value']   # [B, N, C]
         G = gradients['value']     # [B, N, C]
 
+        print(f"[GradCAM DEBUG] A shape: {A.shape}, G shape: {G.shape}")
+
+        # Strip CLS token (index 0) if sequence is not a perfect square
+        n_tokens = A.shape[1]
+        grid_size = int(n_tokens ** 0.5)
+        if grid_size * grid_size != n_tokens:
+            A = A[:, 1:, :]   # [B, 196, C]
+            G = G[:, 1:, :]   # [B, 196, C]
+            n_tokens = A.shape[1]
+            grid_size = int(n_tokens ** 0.5)
+
+        if grid_size * grid_size != n_tokens:
+            raise ValueError(
+                f"Cannot reshape {n_tokens} patch tokens into a square grid "
+                f"after stripping the CLS token."
+            )
+
         # Pool gradients over token dim → importance weight per channel
         weights = G.mean(dim=1)    # [B, C]
 
         # Weighted sum over channels → one scalar per token
         cam = (weights.unsqueeze(1) * A).sum(dim=-1)   # [B, N]
-        cam = torch.relu(cam)                           # ReLU
+        cam = torch.relu(cam)
 
-        # Reshape flat token sequence → 2D spatial grid
-        n_tokens = cam.shape[-1]
-        grid_size = int(n_tokens ** 0.5)
-        if grid_size * grid_size != n_tokens:
-            raise ValueError(
-                f"Cannot reshape {n_tokens} tokens into a square grid. "
-                f"Expected a perfect square (e.g. 196 = 14x14)."
-            )
         cam = cam.reshape(cam.shape[0], 1, grid_size, grid_size)  # [B, 1, 14, 14]
         print(f"[GradCAM DEBUG] ViT CAM shape before upsample: {cam.shape}")
-        return cam
+        return cam.detach()
 
     def generate_overlays(
         self,

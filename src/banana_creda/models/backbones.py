@@ -136,8 +136,10 @@ class BananaModel(nn.Module):
         super(BananaModel, self).__init__()
         self.config = config
         
-        encoder_layers, self.classifier, self.needs_vit_indexing = get_backbone_components(config)
+        encoder_layers, classifier, needs_vit_indexing = get_backbone_components(config)
         self.encoder = nn.Sequential(*encoder_layers)
+        self.classifier = classifier
+        self.needs_vit_indexing = needs_vit_indexing
 
     def forward(self, x: torch.Tensor, mode: str = 'class') -> torch.Tensor:
         """Executes the forward pass of the model.

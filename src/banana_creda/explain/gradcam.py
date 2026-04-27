@@ -16,114 +16,58 @@ class GradCAM:
     A robust wrapper for Captum's LayerGradCam supporting ResNet, ViT,
     EfficientNet, and MobileNet architectures within the BananaModel framework.
 
-    For ViT, LayerGradCam cannot be used directly because EncoderBlock outputs
-    [B, N, C] (tokens-first) while Captum expects [B, C, ...] (channels-first).
-    Instead, we register manual forward/backward hooks on the last EncoderBlock
-    to capture activations and gradients, then compute GradCAM by hand.
+    For ViT, the last Linear layer of the final EncoderBlock's MLP is hooked
+    (encoder[4][2].mlp[3]), whose output is [B, 197, 768]. We use
+    attr_dim_summation=False so Captum does not average over tokens, then
+    manually average over features (768) and reshape to [B, 1, 14, 14].
     """
 
     def __init__(self, model: nn.Module, model_name: str):
         self.model = model
         self.model_name = model_name.lower()
         self.device = next(self.model.parameters()).device
-
         self.target_layer = self._get_target_layer()
-
-        # For non-ViT models, use Captum as normal
-        if "vit" not in self.model_name:
-            self.lgc = LayerGradCam(self.model, self.target_layer)
-        else:
-            self.lgc = None   # ViT uses manual hooks instead
-
+        self.lgc = LayerGradCam(self.model, self.target_layer)
         self.overlays = {}
 
     def _get_target_layer(self) -> nn.Module:
         """
-        Maps the model name to the specific layer in BananaModel.encoder.
+        Returns the layer to hook based on the model architecture.
 
-        ViT: encoder[4][-2] = blocks[11] (last EncoderBlock, before LayerNorm).
-             Outputs [B, N, C] where N is 196 (no CLS) or 197 (with CLS).
+        ViT: encoder[4][2].mlp[3] — last Linear of the MLP in block 11.
+             Output: [B, 197, 768] (197 tokens x 768 features).
+        CNN: last convolutional/conv_head layer of encoder[4].
+             Output: [B, C, H, W] — directly spatial.
         """
         try:
             if "resnet" in self.model_name:
                 return self.model.encoder[4][0]
             elif "vit" in self.model_name:
-                return self.model.encoder[4][-2]   # EncoderBlock (blocks[11])
+                # mlp[3] = last Linear of the MLP in the last EncoderBlock
+                return self.model.encoder[4][2].mlp[3]
             elif "efficientnet" in self.model_name:
                 return self.model.encoder[4][-1]
             elif "mobilenet" in self.model_name:
                 return self.model.encoder[4][-1]
             else:
-                raise ValueError(f"Architecture {self.model_name} not supported.")
+                raise ValueError(f"Architecture {self.model_name} is not supported.")
         except (IndexError, AttributeError) as e:
             raise ValueError(f"Could not find target layer for {self.model_name}: {e}")
 
-    def _compute_vit_gradcam(self, input_img: Tensor, target_class: int) -> Tensor:
+    def _postprocess_vit_attr(self, attr: Tensor) -> Tensor:
         """
-        Manually computes GradCAM for ViT using forward/backward hooks.
+        Converts ViT attribution from [B, 197, 768] to [B, 1, 14, 14].
 
-        EncoderBlock outputs [B, N, C] where:
-          - N = 197 (1 CLS + 196 patch tokens) or 196 (no CLS)
-          - C = 768 hidden dim
-
-        GradCAM formula:
-          1. activations A: [B, N, C]  — strip CLS if present → [B, 196, C]
-          2. gradients  G: [B, N, C]  — strip CLS if present → [B, 196, C]
-          3. weights = mean(G, dim=1) → [B, C]           (pool over tokens)
-          4. cam = relu(sum(weights * A, dim=-1)) → [B, N] (weight channels)
-          5. reshape N=196 → 14x14, upsample to [224, 224]
+        Steps:
+          1. attr_dim_summation=False → Captum returns [B, 197, 768]
+          2. Mean over features (dim=-1) → [B, 197]
+          3. Strip CLS token (index 0)   → [B, 196]
+          4. Reshape into spatial grid   → [B, 1, 14, 14]
         """
-        activations = {}
-        gradients = {}
-
-        def fwd_hook(module, inp, out):
-            activations['value'] = out  # [B, N, C]
-
-        def bwd_hook(module, grad_in, grad_out):
-            gradients['value'] = grad_out[0]  # [B, N, C]
-
-        fwd_handle = self.target_layer.register_forward_hook(fwd_hook)
-        bwd_handle = self.target_layer.register_full_backward_hook(bwd_hook)
-
-        try:
-            self.model.zero_grad()
-            output = self.model(input_img)          # [B, num_classes]
-            score = output[0, target_class]
-            score.backward()
-        finally:
-            fwd_handle.remove()
-            bwd_handle.remove()
-
-        A = activations['value']   # [B, N, C]
-        G = gradients['value']     # [B, N, C]
-
-        print(f"[GradCAM DEBUG] A shape: {A.shape}, G shape: {G.shape}")
-
-        # Strip CLS token (index 0) if sequence is not a perfect square
-        n_tokens = A.shape[1]
-        grid_size = int(n_tokens ** 0.5)
-        if grid_size * grid_size != n_tokens:
-            A = A[:, 1:, :]   # [B, 196, C]
-            G = G[:, 1:, :]   # [B, 196, C]
-            n_tokens = A.shape[1]
-            grid_size = int(n_tokens ** 0.5)
-
-        if grid_size * grid_size != n_tokens:
-            raise ValueError(
-                f"Cannot reshape {n_tokens} patch tokens into a square grid "
-                f"after stripping the CLS token."
-            )
-
-        # Pool gradients over token dim → importance weight per channel
-        weights = G.mean(dim=1)    # [B, C]
-
-        # Weighted sum over channels → one scalar per token
-        cam = (weights.unsqueeze(1) * A).sum(dim=-1)   # [B, N]
-        cam = torch.relu(cam)
-
-        cam = cam.reshape(cam.shape[0], 1, grid_size, grid_size)  # [B, 1, 14, 14]
-        print(f"[GradCAM DEBUG] ViT CAM shape before upsample: {cam.shape}")
-        return cam.detach()
+        attr = attr.mean(dim=-1, keepdim=False)        # [B, 197]
+        attr = attr[:, 1:]                              # [B, 196] — strip CLS
+        attr = attr.reshape(attr.shape[0], 1, 14, 14)  # [B, 1, 14, 14]
+        return attr
 
     def generate_overlays(
         self,
@@ -143,12 +87,21 @@ class GradCAM:
             img_tensor = img_stack[0]
             input_img = img_tensor.unsqueeze(0).to(self.device).requires_grad_(True)
 
-            # 1. Compute attribution map [B, 1, H, W]
+            # 1. Compute attribution
             if "vit" in self.model_name:
-                attr = self._compute_vit_gradcam(input_img, target_class)
+                # attr_dim_summation=False preserves the token dimension
+                attr = self.lgc.attribute(
+                    input_img,
+                    target=target_class,
+                    relu_attributions=True,
+                    attr_dim_summation=False
+                )
+                attr = self._postprocess_vit_attr(attr)   # → [B, 1, 14, 14]
             else:
                 attr = self.lgc.attribute(
-                    input_img, target=target_class, relu_attributions=True
+                    input_img,
+                    target=target_class,
+                    relu_attributions=True
                 )
 
             # 2. Upsample to original image size

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "banana_creda"
 version = "0.1.0"
-description = "Domain Adaptation para madurez de bananos usando CREDA"
+description = "Domain Adaptation for Banana Ripeness Using CREDA"
 authors = [{ name = "Lucas Iturriago", email = "liturriago@unal.edu.co" }]
 requires-python = ">=3.9"
 dependencies = [
@@ -35,14 +35,10 @@ explain = [
 ]
 
 [tool.pytest.ini_options]
-# Indica dónde están los tests
 testpaths = ["tests"]
-# Patrones de búsqueda de archivos y funciones
 python_files = "test_*.py"
 python_functions = "test_*"
-# Argumentos por defecto: -v (verbose), -ra (reporte de todo menos pass)
 addopts = "-v -ra"
 
 [tool.setuptools.packages.find]
-# Ayuda a setuptools a encontrar tu código en la carpeta src/
 where = ["src"]

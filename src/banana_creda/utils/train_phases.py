@@ -145,5 +145,3 @@ def get_training_phase(
             scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=config.gamma)
 
     return optimizer, scheduler
-
-    return optimizer, scheduler

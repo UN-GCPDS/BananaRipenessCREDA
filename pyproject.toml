@@ -19,7 +19,8 @@ dependencies = [
     "scikit-learn",
     "umap-learn",
     "kagglehub",
-    "tqdm"
+    "tqdm",
+    
 ]
 
 [project.optional-dependencies]
@@ -32,6 +33,11 @@ dev = [
 
 explain = [
     "captum>=0.7.0"
+]
+
+convert = [
+    "executorch",
+    "torchao"
 ]
 
 [tool.pytest.ini_options]

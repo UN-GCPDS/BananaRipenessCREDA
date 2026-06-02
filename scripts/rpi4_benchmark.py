@@ -61,7 +61,7 @@ class RPi4ExecuTorchBenchmark:
         if self.verbose:
             print(f"  - Configuring XNNPACK backend with {num_threads} threads...")
             
-        # CRITICAL CONFIGURATION: Pass the thread pool configuration directly to the XNNPACK delegate
+        # Pass the thread pool configuration directly to the XNNPACK delegate
         backend_options = BackendOptions(
             backend_config={"xnnpack": {"num_threads": str(num_threads)}}
         )
@@ -295,9 +295,9 @@ class RPi4ExecuTorchBenchmark:
             plt.close(fig)
 
         # PLOT 4: Temperature
-        if._cpu_temp := results['cpu_temp']:
+        if (cpu_temp_data := results['cpu_temp']):
             fig, ax = plt.subplots(1, 1, figsize=(10, 6))
-            ax.plot(results['cpu_temp'], color='red', alpha=0.7, linewidth=1.5)
+            ax.plot(cpu_temp_data, color='red', alpha=0.7, linewidth=1.5)
             ax.axhline(results['mean_temp'], color='darkred', linestyle='--', linewidth=2, label=f'Mean: {results["mean_temp"]:.1f}°C')
             ax.set_xlabel('Iteration', fontsize=12, fontweight='bold')
             ax.set_ylabel('Temperature (°C)', fontsize=12, fontweight='bold')

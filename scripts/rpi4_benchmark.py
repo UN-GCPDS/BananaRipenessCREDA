@@ -3,6 +3,7 @@ Raspberry Pi 4 Inference Benchmark for ExecuTorch Banana Ripeness Model
 
 This script benchmarks the quantized ExecuTorch model (.pte) on Raspberry Pi 4, 
 measuring warm-up performance, CPU/Memory usage, thermal metrics, and throughput.
+It adapts the sample-by-sample inference execution structure from convert_and_quantize.py.
 
 Usage:
     python rpi4_benchmark.py --model outputs/model_quantized_xnnpack.pte --num_warmup 10 --num_runs 100
@@ -19,7 +20,7 @@ from datetime import datetime
 
 # ExecuTorch Runtime Imports
 import torch
-from executorch.runtime import Runtime, BackendOptions
+from executorch.runtime import Runtime
 
 
 class RPi4ExecuTorchBenchmark:
@@ -54,68 +55,63 @@ class RPi4ExecuTorchBenchmark:
             print("="*70)
             print(f"\n[1/3] Loading ExecuTorch Program: {model_path}")
         
+        # Initialize global multi-threading context before loading program to force worker pooling
+        if self.num_threads > 0:
+            if self.verbose:
+                print(f"  - Globally pinning PyTorch execution environment to {num_threads} threads...")
+            torch.set_num_threads(self.num_threads)
+
         # Initialize ExecuTorch Runtime and load the compiled program
         self.runtime = Runtime.get()
         self.program = self.runtime.load_program(model_path)
         
-        if self.verbose:
-            print(f"  - Configuring XNNPACK backend with {num_threads} threads...")
-            
-        # Pass the thread pool configuration directly to the XNNPACK delegate
-        backend_options = BackendOptions(
-            backend_config={"xnnpack": {"num_threads": str(num_threads)}}
-        )
+        # Load the default method (matches convert_and_quantize.py load_method workflow)
+        self.method = self.program.load_method("forward")
         
-        # Load the default method with active multithreading configuration
-        self.method = self.program.load_method("forward", backend_options)
-        
-        # Generate dummy input matching the expected evaluation shape and type
-        self.dummy_input = self._generate_dummy_input()
+        # Generate dummy input matching standard model structures
+        self.dummy_batch = self._generate_dummy_input()
         
         if self.verbose:
             print(f"\n[2/3] Configuration:")
-            print(f"  - Input tensor shape (NCHW): {self.input_shape}")
-            print(f"  - CPU threads assigned and active: {num_threads}")
+            print(f"  - Configured evaluation batch shape: {self.input_shape}")
+            print(f"  - Target baseline iteration frame size: (1, {input_shape[1]}, {input_shape[2]}, {input_shape[3]})")
+            print(f"  - CPU threads mapped: {num_threads}")
             print(f"  - Model file size: {os.path.getsize(model_path) / (1024*1024):.2f} MB")
     
-    def _generate_dummy_input(self) -> np.ndarray:
+    def _generate_dummy_input(self) -> torch.Tensor:
         """
-        Generate random input for benchmarking.
-        ExecuTorch expects standard PyTorch tensor structures.
-        
-        Returns:
-            Random float32 array with correct shape
+        Generate mock tensor space for testing.
+        Returns a native float32 PyTorch tensor matching target runtime requirements.
         """
-        return np.random.rand(*self.input_shape).astype(np.float32)
+        return torch.randn(self.input_shape, dtype=torch.float32)
     
     def _run_single_inference(self) -> float:
         """
-        Run single inference using ExecuTorch Runtime and return execution time
+        Runs batch execution using sample-by-sample slicing as seen in 
+        convert_and_quantize.py to accommodate static ExecuTorch signatures.
         
         Returns:
-            Inference time in seconds
+            Aggregated execution latency for the full operation in seconds.
         """
-        single_input_tensor = torch.from_numpy(self.dummy_input)
-        
         start_time = time.time()
-        # Execute the graph on multi-threaded XNNPACK CPU backend
-        outputs = self.method.execute([single_input_tensor])
-        # Unpack the output tensor to guarantee full calculation evaluation
-        _ = outputs[0]
-        inference_time = time.time() - start_time
         
+        # Step through batch data sequentially to match the target runtime evaluation strategy
+        # for a static dimension bound of 1.
+        for i in range(self.dummy_batch.size(0)):
+            single_img = self.dummy_batch[i:i+1]
+            
+            # Execute calculation via native pipeline
+            outputs = self.method.execute([single_img])
+            
+            # Extract logit matrix allocation to validate operation finalization
+            logits = outputs[0]
+            _ = torch.argmax(logits, dim=1)
+            
+        inference_time = time.time() - start_time
         return inference_time
     
     def warmup(self, num_warmup: int = 10) -> Dict[str, float]:
-        """
-        Warm-up phase to stabilize performance and cache backend operations
-        
-        Args:
-            num_warmup: Number of warm-up iterations
-            
-        Returns:
-            Dictionary with warm-up statistics
-        """
+        """Warm-up phase to stabilize performance and cache backend operations"""
         if self.verbose:
             print(f"\n[3/3] Warm-up phase ({num_warmup} iterations)...")
         
@@ -140,16 +136,7 @@ class RPi4ExecuTorchBenchmark:
         return warmup_stats
     
     def benchmark(self, num_runs: int = 100, monitor_resources: bool = True) -> Dict:
-        """
-        Run benchmark with hardware resource monitoring
-        
-        Args:
-            num_runs: Number of benchmark iterations
-            monitor_resources: Monitor CPU/Memory usage and system temperature
-            
-        Returns:
-            Dictionary with benchmark results
-        """
+        """Run benchmark with hardware resource monitoring"""
         if self.verbose:
             print(f"\n{'='*70}")
             print(f"BENCHMARKING EXECUTORCH MODEL ({num_runs} iterations)")
@@ -168,7 +155,6 @@ class RPi4ExecuTorchBenchmark:
                 mem_info = process.memory_info()
                 memory_mb = mem_info.rss / (1024 * 1024)
                 
-                # Fetch RPi SoC temperature metrics
                 try:
                     with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
                         temp = float(f.read()) / 1000.0
@@ -242,7 +228,6 @@ class RPi4ExecuTorchBenchmark:
         matplotlib.use('Agg')
         
         inference_times_ms = np.array(results['inference_times']) * 1000
-        saved_files = []
         
         # PLOT 1: Inference Times Line Plot
         fig, ax = plt.subplots(1, 1, figsize=(10, 6))
@@ -259,7 +244,6 @@ class RPi4ExecuTorchBenchmark:
         plt.tight_layout()
         filename = f"{save_prefix}_inference_times.pdf"
         plt.savefig(filename, format='pdf', dpi=300, bbox_inches='tight')
-        saved_files.append(filename)
         plt.close(fig)
         
         # PLOT 2: Histogram
@@ -275,7 +259,6 @@ class RPi4ExecuTorchBenchmark:
         plt.tight_layout()
         filename = f"{save_prefix}_histogram.pdf"
         plt.savefig(filename, format='pdf', dpi=300, bbox_inches='tight')
-        saved_files.append(filename)
         plt.close(fig)
 
         # PLOT 3: CPU Usage
@@ -291,7 +274,6 @@ class RPi4ExecuTorchBenchmark:
             plt.tight_layout()
             filename = f"{save_prefix}_cpu_usage.pdf"
             plt.savefig(filename, format='pdf', dpi=300, bbox_inches='tight')
-            saved_files.append(filename)
             plt.close(fig)
 
         # PLOT 4: Temperature
@@ -305,7 +287,6 @@ class RPi4ExecuTorchBenchmark:
             plt.tight_layout()
             filename = f"{save_prefix}_cpu_temperature.pdf"
             plt.savefig(filename, format='pdf', dpi=300, bbox_inches='tight')
-            saved_files.append(filename)
             plt.close(fig)
 
         print(f"\n[+] Dashboard and graphs successfully saved as PDF variants prefixed with: {save_prefix}")
@@ -332,7 +313,7 @@ def main():
     parser.add_argument('--num_runs', type=int, default=100, help='Number of benchmark iterations')
     parser.add_argument('--num_threads', type=int, default=4, help='Number of CPU threads (default 4 for RPi4)')
     
-    # Matching your BananaModel input signature (1, 3, 224, 224) in NCHW format
+    # Matching BananaModel input shape signature
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--channels', type=int, default=3)
     parser.add_argument('--height', type=int, default=224)

@@ -10,7 +10,7 @@ data:
 
 model:
   num_classes: 4
-  pretrained: true
+  pretrained: false
   backbone: "efficientnet"
   dropout_rate: 0.2
 

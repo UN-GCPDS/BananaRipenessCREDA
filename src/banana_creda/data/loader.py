@@ -84,14 +84,23 @@ class BananaDataLoader:
         Returns:
             Dict[str, transforms.Compose]: Dictionary with keys 'train' and 'inference'.
         """
-        return {
-            'train': transforms.Compose([
-                transforms.Resize((self.config.img_size, self.config.img_size)),
+        train_list = [
+            transforms.Resize((self.config.img_size, self.config.img_size)),
+        ]
+        
+        if self.config.use_augmentation:
+            train_list.extend([
                 transforms.RandomRotation(15),
                 transforms.RandomHorizontalFlip(p=0.5),
-                transforms.ToTensor(),
-                transforms.Normalize(self.config.imagenet_mean, self.config.imagenet_std)
-            ]),
+            ])
+            
+        train_list.extend([
+            transforms.ToTensor(),
+            transforms.Normalize(self.config.imagenet_mean, self.config.imagenet_std)
+        ])
+
+        return {
+            'train': transforms.Compose(train_list),
             'inference': transforms.Compose([
                 transforms.Resize((self.config.img_size, self.config.img_size)),
                 transforms.ToTensor(),

@@ -16,6 +16,7 @@ class DataConfig(BaseModel):
         imagenet_mean (tuple[float, float, float]): ImageNet mean for normalization.
         imagenet_std (tuple[float, float, float]): ImageNet std for normalization.
         use_lime_on_target (bool | None): Flag to use LIME variation on target data.
+        use_augmentation (bool): Whether to apply data augmentations to training dataset.
     """
     source_data_dir: Path
     target_data_dir: Path | None = None
@@ -26,6 +27,7 @@ class DataConfig(BaseModel):
     imagenet_mean: tuple[float, float, float] = (0.485, 0.456, 0.406)
     imagenet_std: tuple[float, float, float] = (0.229, 0.224, 0.225)
     use_lime_on_target: bool | None = None
+    use_augmentation: bool = True
 
 class ModelConfig(BaseModel):
     """Configuration for model architecture.

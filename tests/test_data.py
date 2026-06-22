@@ -91,3 +91,38 @@ def test_banana_image_folder_with_lime(tmp_path):
     images, labels, lime_variants = next(iter(train_loader))
     assert isinstance(lime_variants, torch.Tensor)
     assert len(lime_variants) == 2
+
+
+def test_banana_data_loader_augmentation_toggle(tmp_path):
+    create_fake_dataset(tmp_path)
+    
+    # 1. By default, use_augmentation should be True
+    config_default = DataConfig(
+        source_data_dir=tmp_path,
+        batch_size=2,
+        img_size=224,
+        num_workers=0
+    )
+    assert config_default.use_augmentation is True
+    loader_default = BananaDataLoader(config_default)
+    train_transforms_default = loader_default.transforms['train'].transforms
+    # Should include Resize, RandomRotation, RandomHorizontalFlip, ToTensor, Normalize
+    assert len(train_transforms_default) == 5
+    from torchvision.transforms import RandomRotation, RandomHorizontalFlip
+    assert any(isinstance(t, RandomRotation) for t in train_transforms_default)
+    assert any(isinstance(t, RandomHorizontalFlip) for t in train_transforms_default)
+    
+    # 2. When use_augmentation is False, we should only have Resize, ToTensor, Normalize
+    config_no_aug = DataConfig(
+        source_data_dir=tmp_path,
+        batch_size=2,
+        img_size=224,
+        num_workers=0,
+        use_augmentation=False
+    )
+    assert config_no_aug.use_augmentation is False
+    loader_no_aug = BananaDataLoader(config_no_aug)
+    train_transforms_no_aug = loader_no_aug.transforms['train'].transforms
+    assert len(train_transforms_no_aug) == 3
+    assert not any(isinstance(t, RandomRotation) for t in train_transforms_no_aug)
+    assert not any(isinstance(t, RandomHorizontalFlip) for t in train_transforms_no_aug)

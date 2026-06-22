@@ -10,7 +10,7 @@ data:
 
 model:
   num_classes: 4
-  pretrained: true
+  pretrained: false
   backbone: "mobilenetv3"
   dropout_rate: 0.2
 

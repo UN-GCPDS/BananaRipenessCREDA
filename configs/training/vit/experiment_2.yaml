@@ -7,10 +7,11 @@ data:
   imagenet_mean: [0.485, 0.456, 0.406]
   imagenet_std: [0.229, 0.224, 0.225]
   use_lime_on_target: True
+  use_augmentation: true
 
 model:
   num_classes: 4
-  pretrained: false
+  pretrained: true
   backbone: "vit"
   dropout_rate: 0.2
 

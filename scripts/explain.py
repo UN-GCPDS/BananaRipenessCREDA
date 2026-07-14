@@ -26,7 +26,10 @@ def run_explainability(config_path: str, model_path: str, output_dir: str = None
     cfg = ExperimentConfig.from_yaml(config_path)
 
     if output_dir is not None:
-        cfg.experiment.output_dir = output_dir
+        output_dir_clean = output_dir.replace("\\", "/")
+        if output_dir_clean.startswith("/outputs"):
+            output_dir = output_dir_clean.lstrip("/")
+        cfg.experiment.output_dir = Path(output_dir)
 
     if cfg.training.seed is not None:
         set_seed(cfg.training.seed)

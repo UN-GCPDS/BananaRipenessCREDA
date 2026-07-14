@@ -125,4 +125,11 @@ class ExperimentConfig(BaseModel):
         """
         with open(yaml_path, "r") as f:
             config_dict = yaml.safe_load(f)
+        
+        # Clean output_dir to prevent absolute paths starting with /outputs
+        if "experiment" in config_dict and "output_dir" in config_dict["experiment"]:
+            out_dir = str(config_dict["experiment"]["output_dir"]).replace("\\", "/")
+            if out_dir.startswith("/outputs"):
+                config_dict["experiment"]["output_dir"] = out_dir.lstrip("/")
+                
         return cls(**config_dict)

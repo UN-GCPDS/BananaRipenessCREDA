@@ -1,4 +1,6 @@
 import pytest
+pytest.importorskip("captum")
+
 import torch
 import numpy as np
 from banana_creda.models.backbones import BananaModel

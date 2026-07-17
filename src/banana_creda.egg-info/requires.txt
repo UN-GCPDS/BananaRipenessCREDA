@@ -10,8 +10,15 @@ umap-learn
 kagglehub
 tqdm
 
+[convert]
+executorch
+torchao
+
 [dev]
 pytest
 black
 isort
 mypy
+
+[explain]
+captum>=0.7.0

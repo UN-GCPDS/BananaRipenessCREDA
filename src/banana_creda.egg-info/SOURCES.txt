@@ -9,6 +9,9 @@ src/banana_creda.egg-info/requires.txt
 src/banana_creda.egg-info/top_level.txt
 src/banana_creda/data/__init__.py
 src/banana_creda/data/loader.py
+src/banana_creda/explain/__init__.py
+src/banana_creda/explain/gradcam.py
+src/banana_creda/explain/shap.py
 src/banana_creda/losses/__init__.py
 src/banana_creda/losses/ce.py
 src/banana_creda/losses/creda.py
@@ -19,7 +22,9 @@ src/banana_creda/training/base_trainer.py
 src/banana_creda/training/da_trainer.py
 src/banana_creda/training/transfer_trainer.py
 src/banana_creda/utils/__init__.py
+src/banana_creda/utils/formatter.py
 src/banana_creda/utils/metrics.py
+src/banana_creda/utils/representative_samples.py
 src/banana_creda/utils/reproducibility.py
 src/banana_creda/utils/train_phases.py
 src/banana_creda/utils/visualizer.py

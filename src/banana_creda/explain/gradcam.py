@@ -41,14 +41,14 @@ class GradCAM:
         """
         try:
             if "resnet" in self.model_name:
-                return self.model.encoder[4][0]
+                return self.model.encoder[4][-2]
             elif "vit" in self.model_name:
                 # mlp[3] = last Linear of the MLP in the last EncoderBlock
                 return self.model.encoder[4][2].mlp[3]
             elif "efficientnet" in self.model_name:
-                return self.model.encoder[4][-1]
+                return self.model.encoder[4][-2]
             elif "mobilenet" in self.model_name:
-                return self.model.encoder[4][-1]
+                return self.model.encoder[4][-2]
             else:
                 raise ValueError(f"Architecture {self.model_name} is not supported.")
         except (IndexError, AttributeError) as e:

@@ -405,7 +405,7 @@ class BananaVisualizer:
             for i in range(len(class_names))
         ]
 
-        ax.legend(handles=domain_legend + class_legend, loc='upper right', fontsize=18)
+        ax.legend(handles=domain_legend + class_legend, loc='lower right', fontsize=18)
         plt.title("Latent Space Structure (Domain • Class" + (" • LIME" if use_lime else "") + ")", fontsize=18)
         plt.axis("off")
 

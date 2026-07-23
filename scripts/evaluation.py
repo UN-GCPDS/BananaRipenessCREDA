@@ -101,7 +101,7 @@ def run_evaluation(config_path: str, model_path: str, output_dir: str = None) ->
         class_names=class_names, 
         prefix="evaluation Target Test - Latent Space",
         image_zoom=0.25,
-        min_dist_plots=1.0,
+        min_dist_plots=1.35,
         use_lime=cfg.data.use_lime_on_target,
     )
     

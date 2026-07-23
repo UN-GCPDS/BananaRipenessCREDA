@@ -263,8 +263,8 @@ class BananaVisualizer:
         target_loader: torch.utils.data.DataLoader,
         class_names: List[str],
         prefix: str,
-        image_zoom: float = 0.07,
-        min_dist_plots: float = 0.15,
+        image_zoom: float = 0.25,
+        min_dist_plots: float = 1.0,
         use_lime: bool = False
     ) -> None:
         """Embeds representative images on the UMAP latent space plot.
@@ -392,21 +392,21 @@ class BananaVisualizer:
         # =====================================================
         domain_legend = [
             Line2D([0], [0], marker='o', color='w',
-                label='Source (Normal)', markerfacecolor='gray', markersize=10),
+                label='Source (Normal)', markerfacecolor='gray', markersize=12),
             Line2D([0], [0], marker='^', color='w',
-                label='Target (LIME Vars)', markerfacecolor='gray', markersize=10)
+                label='Target (LIME Vars)', markerfacecolor='gray', markersize=12)
         ]
 
         class_legend = [
             Line2D([0], [0], marker='s', color='w',
                 label=class_names[i],
                 markerfacecolor=cmap(i),
-                markersize=10)
+                markersize=12)
             for i in range(len(class_names))
         ]
 
-        ax.legend(handles=domain_legend + class_legend, loc='upper right')
-        plt.title("Latent Space Structure (Domain • Class" + (" • LIME" if use_lime else "") + ")")
+        ax.legend(handles=domain_legend + class_legend, loc='upper right', fontsize=18)
+        plt.title("Latent Space Structure (Domain • Class" + (" • LIME" if use_lime else "") + ")", fontsize=18)
         plt.axis("off")
 
         path = self.output_dir / f"{prefix}_umap_samples.png"

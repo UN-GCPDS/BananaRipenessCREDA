@@ -329,23 +329,35 @@ import gradio as gr
 from PIL import Image
 
 # -------------------------------------------------------------
-# 1. Carga de Librerías y Detección de Runtime ExecuTorch
+# 0. Soporte para Entornos con ZeroGPU (Hugging Face Spaces)
+# -------------------------------------------------------------
+try:
+    import spaces
+    print("[INFO] Módulo 'spaces' (ZeroGPU) detectado y cargado.")
+except ImportError:
+    class spaces:
+        @staticmethod
+        def GPU(func=None, **kwargs):
+            if func is not None:
+                return func
+            def decorator(f):
+                return f
+            return decorator
+    print("[INFO] Ejecutando en entorno estándar CPU / No-ZeroGPU.")
+
+# -------------------------------------------------------------
+# 1. Carga de Librerías y Runtime ExecuTorch
 # -------------------------------------------------------------
 try:
     from executorch.runtime import Runtime
-    EXECUTORCH_AVAILABLE = True
     print("[INFO] Runtime nativo de ExecuTorch cargado exitosamente.")
 except ImportError:
-    EXECUTORCH_AVAILABLE = False
-    print("[WARNING] ExecuTorch no disponible. Se utilizará PyTorch como fallback.")
+    raise ImportError("[ERROR] No se encontró el runtime de ExecuTorch. Verifica que 'executorch' esté en requirements.txt")
 
 from torchvision import transforms
-import torchvision.models as models
-import torch.nn as nn
 
-# Rutas de los modelos
+# Ruta del modelo optimizado INT8 (Único artefacto requerido para Edge AI)
 PATH_PTE = "model_quantized_xnnpack.pte"
-PATH_PTH = "model_final.pth"
 
 # -------------------------------------------------------------
 # 2. Definición de Clases e Información de Madurez
@@ -394,65 +406,35 @@ def preprocesar(img: Image.Image) -> torch.Tensor:
     return transform(img).unsqueeze(0)
 
 # -------------------------------------------------------------
-# 3. Gestor de Inferencia (Runner con Fallback)
+# 3. Gestor de Inferencia (ExecuTorch INT8)
 # -------------------------------------------------------------
 class BananaInferenceEngine:
-    def __init__(self, pte_path: str, pth_path: str):
-        self.use_executorch = EXECUTORCH_AVAILABLE and os.path.exists(pte_path)
-        
-        if self.use_executorch:
-            try:
-                print(f"[*] Cargando modelo cuantizado ExecuTorch: {pte_path}")
-                self.runtime = Runtime.get()
-                self.program = self.runtime.load_program(pte_path)
-                self.method = self.program.load_method("forward")
-                print("[+] ExecuTorch inicializado correctamente.")
-            except Exception as e:
-                print(f"[!] Error al cargar modelo ExecuTorch: {e}. Activando fallback de PyTorch.")
-                self.use_executorch = False
-
-        if not self.use_executorch:
-            print(f"[*] Cargando modelo fallback PyTorch FP32...")
-            # Recrear MobileNetV3 con cabeza de 4 clases
-            self.model = models.mobilenet_v3_large(weights=None)
-            self.model.classifier[3] = nn.Linear(self.model.classifier[3].in_features, len(CLASSES))
-            
-            if os.path.exists(pth_path):
-                print(f"[*] Cargando pesos entrenados desde: {pth_path}")
-                try:
-                    state_dict = torch.load(pth_path, map_location="cpu")
-                    # Soporte por si los pesos provienen de BananaModel
-                    new_state = {}
-                    for k, v in state_dict.items():
-                        cleaned_k = k.replace("encoder.", "").replace("head.", "classifier.")
-                        new_state[cleaned_k] = v
-                    self.model.load_state_dict(new_state, strict=False)
-                except Exception as e:
-                    print(f"[!] Aviso al cargar pesos: {e}")
-            self.model.eval()
+    def __init__(self, pte_path: str):
+        if not os.path.exists(pte_path):
+            raise FileNotFoundError(f"[ERROR] No se encontró el modelo cuantizado: {pte_path}")
+        print(f"[*] Cargando modelo cuantizado ExecuTorch: {pte_path}")
+        self.runtime = Runtime.get()
+        self.program = self.runtime.load_program(pte_path)
+        self.method = self.program.load_method("forward")
+        print("[+] ExecuTorch inicializado correctamente.")
 
     def predict(self, tensor_img: torch.Tensor):
-        if self.use_executorch:
-            outputs = self.method.execute([tensor_img])
-            logits = outputs[0]
-            if isinstance(logits, list):
-                logits = logits[0]
-            if not isinstance(logits, torch.Tensor):
-                logits = torch.from_numpy(np.array(logits))
-            probs = torch.softmax(logits[0], dim=0)
-            return probs, "ExecuTorch INT8 (XNNPACK)"
-        else:
-            with torch.no_grad():
-                logits = self.model(tensor_img)
-                probs = torch.softmax(logits[0], dim=0)
-            return probs, "PyTorch FP32 (Fallback)"
+        outputs = self.method.execute([tensor_img])
+        logits = outputs[0]
+        if isinstance(logits, list):
+            logits = logits[0]
+        if not isinstance(logits, torch.Tensor):
+            logits = torch.from_numpy(np.array(logits))
+        probs = torch.softmax(logits[0], dim=0)
+        return probs, "ExecuTorch INT8 (XNNPACK)"
 
-# Inicializar motor global
-engine = BananaInferenceEngine(PATH_PTE, PATH_PTH)
+# Inicializar motor global con el modelo cuantizado INT8
+engine = BananaInferenceEngine(PATH_PTE)
 
 # -------------------------------------------------------------
-# 4. Función de Predicción para la Interfaz
+# 4. Función de Predicción para la Interfaz (Decorada con @spaces.GPU)
 # -------------------------------------------------------------
+@spaces.GPU
 def clasificar_madurez(imagen_pil: Image.Image):
     if imagen_pil is None:
         return None, "", "Por favor carga una imagen de un banano."
@@ -485,7 +467,7 @@ def clasificar_madurez(imagen_pil: Image.Image):
 # -------------------------------------------------------------
 # 5. Interfaz Gráfica con Gradio Blocks
 # -------------------------------------------------------------
-with gr.Blocks(theme=gr.themes.Soft(primary_hue="amber", neutral_hue="slate"), title="Detector de Madurez de Bananos - ExecuTorch") as demo:
+with gr.Blocks(title="Detector de Madurez de Bananos - ExecuTorch") as demo:
     gr.Markdown(\"\"\"
     # 🍌 Clasificador de Madurez de Bananos en el Borde (Edge AI)
     ### **Desarrollado con PyTorch, ExecuTorch (INT8) y Algoritmo CREDA**
@@ -506,11 +488,12 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="amber", neutral_hue="slate"), t
     btn_predict.click(
         fn=clasificar_madurez,
         inputs=[input_image],
-        outputs=[output_label, output_details, backend_badge]
+        outputs=[output_label, output_details, backend_badge],
+        api_name="predict"
     )
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    demo.launch(theme=gr.themes.Soft(primary_hue="amber", neutral_hue="slate"))
 """
 
 with open(SPACE_DIR / "app.py", "w", encoding="utf-8") as f:
@@ -519,68 +502,44 @@ with open(SPACE_DIR / "app.py", "w", encoding="utf-8") as f:
 print(f"[+] Archivo app.py creado en {SPACE_DIR}/app.py")
 
 # %% [markdown]
-# ## 6.4. Generación del `Dockerfile`
+# ## 6.4. Generación de Dependencias (`requirements.txt`)
 #
-# Configuramos el entorno de ejecución en Hugging Face con Python 3.10-slim y las librerías necesarias.
+# Para Hugging Face Spaces con el SDK nativo de Gradio, definimos las dependencias en `requirements.txt`.
+# Esto permite que Hugging Face instale las librerías automáticamente y soporte aceleración de hardware (incluyendo ZeroGPU y CPU estándar).
 
 # %%
-dockerfile_code = """FROM python:3.10-slim
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-RUN apt-get update && apt-get install -y --no-install-recommends \\
-    build-essential \\
-    libgl1 \\
-    libglib2.0-0 \\
-    git \\
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-RUN useradd -m -u 1000 user
-USER user
-ENV HOME=/home/user \\
-    PATH=/home/user/.local/bin:$PATH
-
-WORKDIR $HOME/app
-
-RUN pip install --no-cache-dir --upgrade pip && \\
-    pip install --no-cache-dir --quiet \\
-    executorch \\
-    torch==2.11.0 \\
-    torchvision \\
-    numpy \\
-    pillow \\
-    gradio \\
-    gradio_client
-
-COPY --chown=user app.py ./app.py
-COPY --chown=user model_quantized_xnnpack.pte ./model_quantized_xnnpack.pte
-COPY --chown=user model_final.pth ./model_final.pth
-
-EXPOSE 7860
-
-CMD ["python", "app.py"]
+requirements_content = """torch>=2.1.0
+torchvision
+numpy
+pillow
+gradio
+executorch
 """
 
-with open(SPACE_DIR / "Dockerfile", "w", encoding="utf-8") as f:
-    f.write(dockerfile_code)
+with open(SPACE_DIR / "requirements.txt", "w", encoding="utf-8") as f:
+    f.write(requirements_content)
 
-print(f"[+] Archivo Dockerfile creado en {SPACE_DIR}/Dockerfile")
+# Eliminar Dockerfile previo si existiera para evitar conflictos con el SDK de Gradio
+if (SPACE_DIR / "Dockerfile").exists():
+    (SPACE_DIR / "Dockerfile").unlink()
+
+print(f"[+] Archivo requirements.txt creado en {SPACE_DIR}/requirements.txt")
 
 # %% [markdown]
-# ## 6.5. Generación de los Metadatos `README.md`
+# ## 6.5. Generación de los Metadatos `README.md` (Gradio SDK)
 #
-# Hugging Face requiere un bloque inicial en formato YAML para definir que el Space operará bajo el SDK de Docker.
+# Hugging Face requiere un bloque inicial en formato YAML. Especificamos `sdk: gradio` con la versión detectada de Gradio para garantizar compatibilidad con el entorno de ejecución (y evitar el error de ZeroGPU exclusivo de Gradio).
 
 # %%
+import gradio as gr
+
 readme_code = f"""---
 title: Banana Ripeness Detector - MobileNetV3 ExecuTorch INT8
 emoji: 🍌
 colorFrom: yellow
 colorTo: green
-sdk: docker
+sdk: gradio
+sdk_version: {gr.__version__}
 app_file: app.py
 pinned: false
 license: mit
@@ -597,19 +556,21 @@ Aplicación interactiva desarrollada para el **Taller IEEE** en la **Universidad
 with open(SPACE_DIR / "README.md", "w", encoding="utf-8") as f:
     f.write(readme_code)
 
-print(f"[+] Archivo README.md creado en {SPACE_DIR}/README.md")
+print(f"[+] Archivo README.md creado en {SPACE_DIR}/README.md (sdk: gradio)")
 
 # %% [markdown]
-# ## 6.6. Copiado de Modelos al Directorio del Space
+# ## 6.6. Copiado del Modelo Cuantizado al Directorio del Space
 #
-# Copiamos tanto el modelo cuantizado de ExecuTorch (`.pte`) como los pesos originales (`.pth`) dentro de la carpeta del Space para su empaquetado.
+# Para un despliegue Edge AI genuino, únicamente subimos el artefacto binario optimizado de ExecuTorch (`model_quantized_xnnpack.pte`). No se requiere subir los pesos originales de PyTorch (`model_final.pth`), reduciendo el tamaño a tan solo ~4.3 MB (un 73% más ligero).
 
 # %%
 import shutil
 
-# Rutas de los artefactos generados
 source_pte = Path("outputs/mobilenetv3/experiment_3/model_quantized_xnnpack.pte")
-source_pth = Path("outputs/mobilenetv3/experiment_3/model_final.pth")
+
+# Si existiera una copia previa del modelo .pth en la carpeta local del Space, la eliminamos
+if (SPACE_DIR / "model_final.pth").exists():
+    (SPACE_DIR / "model_final.pth").unlink()
 
 # Copiar modelo ExecuTorch INT8
 if source_pte.exists():
@@ -617,13 +578,6 @@ if source_pte.exists():
     print(f"[+] Modelo ExecuTorch copiado ({source_pte.stat().st_size / (1024*1024):.2f} MB)")
 else:
     print("[!] AVISO: No se encontró model_quantized_xnnpack.pte. Asegúrate de ejecutar la Sección 5.")
-
-# Copiar modelo PyTorch FP32
-if source_pth.exists():
-    shutil.copy(source_pth, SPACE_DIR / "model_final.pth")
-    print(f"[+] Modelo PyTorch copiado ({source_pth.stat().st_size / (1024*1024):.2f} MB)")
-else:
-    print("[!] AVISO: No se encontró model_final.pth. Asegúrate de ejecutar la Sección 3.")
 
 print(f"\nContenido del directorio de despliegue '{SPACE_NAME}':")
 for file in SPACE_DIR.iterdir():
@@ -640,10 +594,10 @@ from huggingface_hub import HfApi
 api = HfApi()
 repo_id = f"{HF_USER}/{SPACE_NAME}"
 
-# 1. Crear el repositorio en Hugging Face si no existe
+# 1. Crear el repositorio en Hugging Face si no existe (usando space_sdk="gradio")
 try:
-    api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="docker", exist_ok=True)
-    print(f"[+] Espacio '{repo_id}' confirmado en Hugging Face.")
+    api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="gradio", exist_ok=True)
+    print(f"[+] Espacio '{repo_id}' confirmado en Hugging Face (SDK: gradio).")
 except Exception as e:
     print(f"[!] Error o verificación de repositorio: {e}")
 
@@ -653,7 +607,7 @@ api.upload_folder(
     folder_path=str(SPACE_DIR),
     repo_id=repo_id,
     repo_type="space",
-    commit_message="Despliegue de MobileNetV3 INT8 con ExecuTorch - Taller IEEE"
+    commit_message="Despliegue de MobileNetV3 INT8 con Gradio SDK - Taller IEEE"
 )
 
 print(f"\n🚀 [DESPLIEGUE INICIADO EXITOSAMENTE]")
@@ -667,11 +621,14 @@ print(f"Visita tu aplicación en vivo: https://huggingface.co/spaces/{repo_id}")
 
 # %%
 from gradio_client import Client
+try:
+    from gradio_client import handle_file
+except ImportError:
+    handle_file = None
 import glob
 
 # Seleccionar una imagen de prueba real del dataset
-sample_images = glob.glob(f"{DATASET_DIR}/Original/test/*/*.jpg")
-
+sample_images = glob.glob(f"{DATASET_DIR}/Medium_Variation/test/Class A/*.png")
 if sample_images:
     sample_img_path = sample_images[0]
     print(f"[*] Imagen de prueba seleccionada: {sample_img_path}")
@@ -680,16 +637,21 @@ if sample_images:
         # Conectar con el cliente de Gradio
         client = Client(f"{HF_USER}/{SPACE_NAME}")
         
-        # Enviar petición de inferencia
+        # Preparar payload compatible con Gradio 4 y 5
+        img_payload = handle_file(sample_img_path) if handle_file is not None else sample_img_path
+
+        # Enviar petición de inferencia al endpoint registrado /predict
         resultado = client.predict(
-            imagen_pil=sample_img_path,
+            img_payload,
             api_name="/predict"
         )
-        print("\n[+] Respuesta del Servidor:")
-        print(resultado)
+        print("\n[+] Predicción recibida exitosamente del Space:")
+        print(f"  * Probabilidades: {resultado[0]}")
+        print(f"  * Detalle y Recomendación:\n{resultado[1]}")
+        print(f"  * Backend: {resultado[2]}")
     except Exception as e:
-        print(f"[INFO] La aplicación aún se está compilando en Hugging Face o requiere unos minutos: {e}")
-        print(f"Puedes seguir el log de compilación en: https://huggingface.co/spaces/{HF_USER}/{SPACE_NAME}")
+        print(f"[!] Detalle: {e}")
+        print(f"Puedes verificar el log de ejecución de tu Space en: https://huggingface.co/spaces/{HF_USER}/{SPACE_NAME}")
 else:
     print("[!] No se encontraron imágenes locales en el test set para probar el cliente.")
 

@@ -1,0 +1,376 @@
+% ==============================================================================
+% BEAMER THEME ETCM HYBRID
+% Plantilla de Presentación: Fusión IEEE ETCM 2026 + Identidad Académica UNAL
+% Autor: Diseñado para Lucas Iturriago Salas (UNAL Sede Manizales)
+% ==============================================================================
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{beamerthemeETCMHybrid}[2026/10/09 Beamer Theme ETCM Hybrid]
+
+% --- PAQUETES REQUERIDOS ---
+\RequirePackage{tikz}
+\usetikzlibrary{calc, shapes.geometric, shadows}
+\RequirePackage{graphicx}
+\RequirePackage{booktabs}
+\RequirePackage{colortbl}
+\RequirePackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+
+% ==============================================================================
+% 1. PALETA DE COLORES OFICIALES (IEEE ETCM 2026 & UNAL)
+% ==============================================================================
+\definecolor{IEEEBlue}{RGB}{11, 74, 117}      % Azul Institucional IEEE / ETCM Principal (#0B4A75)
+\definecolor{IEEESky}{RGB}{0, 143, 213}       % Azul Celeste / Badge "Décima Edición" (#008FD5)
+\definecolor{ETCMGold}{RGB}{249, 185, 27}     % Amarillo/Dorado distintivo ETCM (#F9B91B)
+\definecolor{ETCMRed}{RGB}{217, 37, 42}       % Rojo de acento (#D9252A)
+\definecolor{DarkText}{RGB}{26, 36, 50}       % Texto slate de alto contraste
+\definecolor{LightBg}{RGB}{246, 248, 251}     % Fondo suave para tarjetas y slides (#F6F8FB)
+\definecolor{BorderGray}{RGB}{220, 226, 235} % Borde sutil para tarjetas
+\definecolor{UnalBlue}{RGB}{40, 102, 158}     % Azul Institucional UNAL
+
+% Configuración general de colores de Beamer
+\setbeamercolor{normal text}{fg=DarkText, bg=white}
+\setbeamercolor{structure}{fg=IEEEBlue}
+\setbeamercolor{title}{fg=IEEEBlue}
+\setbeamercolor{subtitle}{fg=IEEESky}
+\setbeamercolor{author}{fg=DarkText}
+\setbeamercolor{institute}{fg=DarkText!75}
+\setbeamercolor{date}{fg=DarkText!70}
+
+% Tipografía y navegación
+\usefonttheme{professionalfonts}
+\setbeamerfont{title}{size=\Large, series=\bfseries}
+\setbeamerfont{frametitle}{size=\large, series=\bfseries}
+\setbeamerfont{framesubtitle}{size=\tiny, series=\bfseries}
+\setbeamertemplate{navigation symbols}{}
+
+% Márgenes de diapositiva calibrados para 16:9
+\setbeamersize{text margin left=0.7cm, text margin right=0.7cm}
+
+% Viñetas personalizadas (Itemize)
+\setbeamertemplate{itemize item}{\textcolor{IEEESky}{\small$\blacksquare$}}
+\setbeamertemplate{itemize subitem}{\textcolor{ETCMGold}{\footnotesize$\blacktriangleright$}}
+\setbeamertemplate{itemize subsubitem}{\textcolor{IEEEBlue}{\tiny$\bullet$}}
+
+% ==============================================================================
+% 2. ENCABEZADO (FRAMETITLE): PESTAÑA ANGULAR IEEE ETCM
+% ==============================================================================
+\setbeamertemplate{frametitle}{%
+    \nointerlineskip%
+    \begin{beamercolorbox}[wd=\paperwidth, ht=1.15cm, dp=0.2cm]{frametitle}
+        \begin{tikzpicture}[remember picture, overlay]
+            % Fondo blanco superior
+            \fill[white] (0, 0) rectangle (\paperwidth, 1.35cm);
+            
+            % Línea azul superior
+            \fill[IEEEBlue] (0, 1.31cm) rectangle (\paperwidth, 1.35cm);
+
+            % Acento vertical doble (Azul IEEE + Dorado ETCM)
+            \fill[IEEEBlue] (0.7cm, 0.25cm) rectangle (0.78cm, 1.05cm);
+            \fill[ETCMGold] (0.78cm, 0.25cm) rectangle (0.83cm, 0.72cm);
+
+            % Texto del título y subtítulo
+            \node[anchor=west, inner sep=0pt] at (1.05cm, 0.75cm) {%
+                {\usebeamerfont{frametitle}\textcolor{IEEEBlue}{\insertframetitle}}%
+            };
+            \ifx\insertframesubtitle\@empty\else
+            \node[anchor=west, inner sep=0pt] at (1.05cm, 0.35cm) {%
+                {\fontsize{7.5pt}{9pt}\selectfont\textcolor{IEEESky}{\textbf{\insertframesubtitle}}}%
+            };
+            \fi
+
+            % Pestaña angular estilo IEEE ETCM (Esquina superior derecha)
+            \coordinate (TabTopLeft)  at (\paperwidth - 4.4cm, 1.31cm);
+            \coordinate (TabTopRight) at (\paperwidth, 1.31cm);
+            \coordinate (TabBotRight) at (\paperwidth, 0.30cm);
+            \coordinate (TabBotLeft)  at (\paperwidth - 3.8cm, 0.30cm);
+
+            % Sombra sutil de la pestaña
+            \fill[black!8] ([xshift=-1.5pt, yshift=-1.5pt]TabTopLeft) -- 
+                           ([yshift=-1.5pt]TabTopRight) -- 
+                           ([yshift=-1.5pt]TabBotRight) -- 
+                           ([xshift=-1.5pt, yshift=-1.5pt]TabBotLeft) -- cycle;
+            
+            % Pestaña angular blanca con borde
+            \fill[LightBg] (TabTopLeft) -- (TabTopRight) -- (TabBotRight) -- (TabBotLeft) -- cycle;
+            \draw[BorderGray, line width=0.5pt] (TabTopLeft) -- (TabBotLeft) -- (TabBotRight);
+
+            % Texto dentro de la pestaña institucional
+            \node[anchor=center] at (\paperwidth - 1.95cm, 0.85cm) {%
+                \textcolor{IEEEBlue}{\fontsize{7.5pt}{8.5pt}\selectfont\textbf{IEEE ETCM 2026}}%
+            };
+            \node[anchor=center] at (\paperwidth - 1.95cm, 0.52cm) {%
+                \textcolor{DarkText!60}{\fontsize{5.5pt}{6.5pt}\selectfont Ecuador $\cdot$ 10 Años}%
+            };
+
+            % Línea divisoria inferior
+            \draw[BorderGray, line width=0.5pt] (0, 0.12cm) -- (\paperwidth, 0.12cm);
+        \end{tikzpicture}
+    \end{beamercolorbox}
+    \vspace{0.05cm}
+}
+
+% ==============================================================================
+% 3. PIE DE PÁGINA (FOOTLINE): BANDA ANGULAR ASIMÉTRICA IEEE ETCM
+% ==============================================================================
+\setbeamertemplate{footline}{%
+    \leavevmode%
+    \begin{beamercolorbox}[wd=\paperwidth, ht=0.45cm, dp=0.15cm]{footline}
+        \begin{tikzpicture}[remember picture, overlay]
+            % Fondo inferior muy claro
+            \fill[LightBg] (0, 0) rectangle (\paperwidth, 0.55cm);
+
+            % Trazo angular característico IEEE ETCM:
+            % En el tercio izquierdo (x=4.2cm a x=5.0cm) quiebra en 45 grados
+            \draw[IEEEBlue, line width=1.4pt] 
+                (0, 0.05cm) -- (4.2cm, 0.05cm) -- (5.0cm, 0.45cm) -- (\paperwidth, 0.45cm);
+
+            % Acento dorado en la arista angular
+            \draw[ETCMGold, line width=1.4pt] 
+                (4.7cm, 0.30cm) -- (5.0cm, 0.45cm);
+
+            % Información izquierda (debajo de la repisa)
+            \node[anchor=west] at (0.5cm, 0.25cm) {%
+                \fontsize{6pt}{7pt}\selectfont%
+                \textcolor{IEEEBlue}{\textbf{\insertshortauthor}} \textcolor{DarkText!60}{| UNAL Manizales}%
+            };
+
+            % Información central: Título corto
+            \node[anchor=west] at (5.3cm, 0.22cm) {%
+                \fontsize{6pt}{7pt}\selectfont%
+                \textcolor{DarkText!80}{\insertshorttitle}%
+            };
+
+            % Contador de páginas estilo moderno
+            \node[anchor=east] at (\paperwidth - 0.5cm, 0.22cm) {%
+                \fontsize{6.5pt}{7.5pt}\selectfont%
+                \textcolor{IEEESky}{\textbf{\insertframenumber}}%
+                \textcolor{DarkText!40}{~/~\inserttotalframenumber}%
+            };
+        \end{tikzpicture}
+    \end{beamercolorbox}
+}
+
+% ==============================================================================
+% 4. TARJETAS / BLOQUES MODERNOS (FLAT CARDS) CON TCOLORBOX
+% ==============================================================================
+% 1. Tarjeta Estándar / Azul IEEE
+\newtcolorbox{modernblock}[2][]{%
+    enhanced,
+    colback=LightBg,
+    colframe=IEEEBlue,
+    arc=2.5pt,
+    boxrule=0pt,
+    leftrule=3.5pt,
+    titlerule=0pt,
+    title={\textbf{#2}},
+    coltitle=IEEEBlue,
+    fonttitle=\fontsize{8pt}{9.5pt}\selectfont\bfseries,
+    colbacktitle=LightBg,
+    top=3pt, bottom=3pt, left=6pt, right=6pt,
+    middle=2pt,
+    shadow={1pt}{-1pt}{0pt}{black!4},
+    #1
+}
+
+% 2. Tarjeta Éxito / Celeste ETCM
+\newtcolorbox{successblock}[2][]{%
+    enhanced,
+    colback=LightBg,
+    colframe=IEEESky,
+    arc=2.5pt,
+    boxrule=0pt,
+    leftrule=3.5pt,
+    titlerule=0pt,
+    title={\textbf{#2}},
+    coltitle=IEEESky,
+    fonttitle=\fontsize{8pt}{9.5pt}\selectfont\bfseries,
+    colbacktitle=LightBg,
+    top=3pt, bottom=3pt, left=6pt, right=6pt,
+    middle=2pt,
+    shadow={1pt}{-1pt}{0pt}{black!4},
+    #1
+}
+
+% 3. Tarjeta Alerta / Rojo ETCM
+\newtcolorbox{alertmodernblock}[2][]{%
+    enhanced,
+    colback=LightBg,
+    colframe=ETCMRed,
+    arc=2.5pt,
+    boxrule=0pt,
+    leftrule=3.5pt,
+    titlerule=0pt,
+    title={\textbf{#2}},
+    coltitle=ETCMRed,
+    fonttitle=\fontsize{8pt}{9.5pt}\selectfont\bfseries,
+    colbacktitle=LightBg,
+    top=3pt, bottom=3pt, left=6pt, right=6pt,
+    middle=2pt,
+    shadow={1pt}{-1pt}{0pt}{black!4},
+    #1
+}
+
+% 4. Tarjeta Destacada con Fondo Dorado Suave
+\newtcolorbox{goldblock}[2][]{%
+    enhanced,
+    colback=ETCMGold!12,
+    colframe=ETCMGold,
+    arc=2.5pt,
+    boxrule=0pt,
+    leftrule=3.5pt,
+    titlerule=0pt,
+    title={\textbf{#2}},
+    coltitle=DarkText,
+    fonttitle=\fontsize{8pt}{9.5pt}\selectfont\bfseries,
+    colbacktitle=ETCMGold!12,
+    top=3pt, bottom=3pt, left=6pt, right=6pt,
+    middle=2pt,
+    shadow={1pt}{-1pt}{0pt}{black!4},
+    #1
+}
+
+% Mapeo de entornos nativos de Beamer a tarjetas estilizadas
+\renewenvironment{block}[1]{\begin{modernblock}{#1}}{\end{modernblock}}
+\renewenvironment{exampleblock}[1]{\begin{successblock}{#1}}{\end{successblock}}
+\renewenvironment{alertblock}[1]{\begin{alertmodernblock}{#1}}{\end{alertmodernblock}}
+
+% ==============================================================================
+% 5. COMANDO PARA PORTADA HÍBRIDA (TITLE PAGE)
+% ==============================================================================
+\newcommand{\makeETCMtitlepage}{%
+{
+\setbeamertemplate{frametitle}{}
+\setbeamertemplate{footline}{}
+\begin{frame}[plain]
+    \begin{tikzpicture}[remember picture, overlay]
+        % Fondo blanco puro
+        \fill[white] (current page.south west) rectangle (current page.north east);
+        
+        % Trama sutil de cuadrícula tecnológica (tipo IEEE ETCM)
+        \foreach \x in {1.5, 3.5, 5.5, 7.5, 9.5, 11.5, 13.5, 15.5} {
+            \draw[black!3, line width=0.4pt] (\x, -9) -- (\x, 1);
+        }
+        
+        % --- CABECERA DE LA PORTADA: IDENTIDAD CONFERENCIA ---
+        % Rombo / Emblema vectorial ETCM arriba a la izquierda
+        \node[anchor=north west] at ([xshift=0.9cm, yshift=-0.6cm]current page.north west) {
+            \begin{tikzpicture}[scale=0.32]
+                \fill[IEEEBlue] (0,0) -- (1, 1) -- (2, 0) -- (1, -1) -- cycle;
+                \fill[ETCMRed]  (1,1) -- (2, 2) -- (3, 1) -- (2,  0) -- cycle;
+                \fill[ETCMGold] (0,-1) -- (1, 0) -- (2, -1) -- (1, -2) -- cycle;
+            \end{tikzpicture}
+        };
+        
+        \node[anchor=north west] at ([xshift=2.1cm, yshift=-0.55cm]current page.north west) {
+            \begin{tabular}{@{}l@{}}
+                \textbf{\fontsize{8.5pt}{9.5pt}\selectfont\textcolor{IEEEBlue}{IEEE ETCM 2026}} \\
+                \fontsize{6.5pt}{7.5pt}\selectfont\textcolor{DarkText!70}{10 Años $\cdot$ Ecuador}
+            \end{tabular}
+        };
+
+        % Badge "DÉCIMA EDICIÓN"
+        \node[anchor=north] at ([yshift=-0.65cm]current page.north) {
+            \tikz\node[fill=IEEESky, rounded corners=3pt, text=white, inner sep=4pt, font=\bfseries\fontsize{7pt}{8pt}\selectfont] {
+                DÉCIMA EDICIÓN $\cdot$ CONFERENCIA TÉCNICA
+            };
+        };
+
+        % Logo UNAL arriba a la derecha
+        \node[anchor=north east] at ([xshift=-0.9cm, yshift=-0.5cm]current page.north east) {
+            \includegraphics[height=1.1cm]{EscudoUN2016.png}
+        };
+
+        % --- CUERPO CENTRAL: TÍTULOS Y AUTORÍA ---
+        \node[anchor=center, text width=14.2cm, align=center] at ([yshift=0.45cm]current page.center) {
+            \hyphenpenalty=10000
+            {\fontsize{17pt}{21pt}\selectfont\textbf{\textcolor{IEEEBlue}{\inserttitle}}}\\[0.25cm]
+            {\fontsize{10.5pt}{12.5pt}\selectfont\textcolor{IEEESky}{\textbf{\insertsubtitle}}}\\[0.45cm]
+            {\fontsize{10.5pt}{12pt}\selectfont\textbf{\textcolor{DarkText}{\insertauthor}}}\\[0.15cm]
+            {\fontsize{8.5pt}{10.5pt}\selectfont\textcolor{DarkText!75}{\insertinstitute}}
+        };
+
+        % --- ZÓCALO INFERIOR: FRANJA SÓLIDA CON DETALLES ANGULARES ---
+        % Barra base azul
+        \fill[IEEEBlue] (current page.south west) rectangle ([yshift=0.75cm]current page.south east);
+
+        % Corte angular amarillo y celeste en la parte superior derecha de la barra
+        \fill[ETCMGold] ([xshift=10.2cm, yshift=0.75cm]current page.south west) -- 
+                        ([xshift=10.9cm, yshift=0.75cm]current page.south west) -- 
+                        ([xshift=11.3cm]current page.south west) -- 
+                        ([xshift=10.6cm]current page.south west) -- cycle;
+
+        \fill[IEEESky]  ([xshift=10.95cm, yshift=0.75cm]current page.south west) -- 
+                        ([xshift=11.45cm, yshift=0.75cm]current page.south west) -- 
+                        ([xshift=11.85cm]current page.south west) -- 
+                        ([xshift=11.35cm]current page.south west) -- cycle;
+
+        % Textos dentro de la barra azul inferior
+        \node[anchor=west] at ([xshift=0.9cm, yshift=0.37cm]current page.south west) {
+            \fontsize{6.5pt}{7.5pt}\selectfont%
+            \textcolor{white}{\textbf{Organizado por:}} \textcolor{white!85}{IEEE Sección Ecuador} \hspace{0.25cm}
+            \textcolor{white!40}{|} \hspace{0.25cm}
+            \textcolor{white}{\textbf{Co-organizado por:}} \textcolor{white!85}{ITB \& UBE}
+        };
+
+        \node[anchor=east] at ([xshift=-0.9cm, yshift=0.37cm]current page.south east) {
+            \fontsize{6.5pt}{7.5pt}\selectfont\textcolor{white!90}{\textbf{\insertdate}}
+        };
+    \end{tikzpicture}
+\end{frame}
+}
+}
+
+% ==============================================================================
+% 6. COMANDO PARA DIAPOSITIVA DE CIERRE
+% ==============================================================================
+\newcommand{\makeETCMclosingpage}[3]{%
+% Parámetros: #1 = Nombre, #2 = Correo, #3 = Filiación
+{
+\setbeamertemplate{frametitle}{}
+\setbeamertemplate{footline}{}
+\begin{frame}[plain]
+    \begin{tikzpicture}[remember picture, overlay]
+        \fill[LightBg] (current page.south west) rectangle (current page.north east);
+
+        % Franja angular superior
+        \fill[IEEEBlue] (current page.north west) -- 
+                        ([xshift=8.5cm]current page.north west) -- 
+                        ([xshift=9.5cm, yshift=-0.65cm]current page.north west) -- 
+                        ([yshift=-0.65cm]current page.north east) -- 
+                        (current page.north east) -- cycle;
+        \fill[ETCMGold] ([xshift=9.45cm, yshift=-0.65cm]current page.north west) -- 
+                        ([xshift=9.95cm, yshift=-0.65cm]current page.north west) -- 
+                        ([xshift=8.95cm]current page.north west) -- 
+                        ([xshift=8.45cm]current page.north west) -- cycle;
+
+        % Logo institucional UNAL centrado
+        \node[anchor=center] at ([yshift=1.2cm]current page.center) {
+            \includegraphics[height=1.7cm]{EscudoUN2016.png}
+        };
+
+        % Título de cierre y datos de contacto
+        \node[anchor=center] at ([yshift=-0.15cm]current page.center) {
+            {\fontsize{19pt}{23pt}\selectfont\textbf{\textcolor{IEEEBlue}{¡Gracias por su Atención!}}}
+        };
+
+        \node[anchor=center] at ([yshift=-0.85cm]current page.center) {
+            {\fontsize{11pt}{13pt}\selectfont\textbf{\textcolor{DarkText}{#1}}}
+        };
+
+        \node[anchor=center] at ([yshift=-1.30cm]current page.center) {
+            {\fontsize{9pt}{11pt}\selectfont\texttt{\textcolor{IEEESky}{#2}}}
+        };
+
+        \node[anchor=center] at ([yshift=-1.75cm]current page.center) {
+            {\fontsize{8.5pt}{10pt}\selectfont\textcolor{DarkText!70}{#3}}
+        };
+
+        % Zócalo inferior
+        \fill[IEEEBlue] (current page.south west) rectangle ([yshift=0.7cm]current page.south east);
+        \node[anchor=center] at ([yshift=0.35cm]current page.south) {
+            \fontsize{7.5pt}{9pt}\selectfont\textcolor{white}{\textbf{IEEE ETCM 2026 $\cdot$ Ecuador Technical Chapters Meeting}}
+        };
+    \end{tikzpicture}
+\end{frame}
+}
+}

@@ -1,0 +1,177 @@
+\documentclass[aspectratio=169, 10pt]{beamer}
+
+% ==============================================================================
+% CONFIGURACIÓN Y TEMA HÍBRIDO
+% ==============================================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath, amssymb}
+\usepackage{beamerthemeETCMHybrid}
+
+% ==============================================================================
+% METADATOS DE LA PRESENTACIÓN
+% ==============================================================================
+\title[Visión por Computador en Agro]{Clasificación del Estado de Maduración de Banano\\mediante Visión por Computador y Deep Learning}
+\subtitle{Avances y Metodología para Inspección No Invasiva}
+\author[Lucas Iturriago]{Doctorante Lucas Iturriago Salas}
+\institute{Grupo de Control y Procesamiento Digital de Señales (GCPDS)\\ Universidad Nacional de Colombia --- Sede Manizales}
+\date{IEEE ETCM 2026 $\cdot$ Octubre 2026}
+
+% ==============================================================================
+% CONTENIDO DE LA PRESENTACIÓN
+% ==============================================================================
+\begin{document}
+
+% ------------------------------------------------------------------------------
+% 1. PORTADA HÍBRIDA (IEEE ETCM 2026 + UNAL)
+% ------------------------------------------------------------------------------
+\makeETCMtitlepage
+
+% ------------------------------------------------------------------------------
+% 2. AGENDA DE LA PRESENTACIÓN
+% ------------------------------------------------------------------------------
+\begin{frame}{Agenda de la Presentación}{Estructura y Organización de la Ponencia}
+    \begin{columns}[T]
+        \column{0.48\textwidth}
+        \begin{modernblock}{1. Contexto y Motivación}
+            \begin{itemize}
+                \item Retos en la agroindustria bananera.
+                \item Limitaciones de la inspección manual.
+                \item Objetivos del sistema propuesto.
+            \end{itemize}
+        \end{modernblock}
+        
+        \vspace{0.15cm}
+        \begin{modernblock}{2. Adquisición y Dataset}
+            \begin{itemize}
+                \item Protocolo de captura en luz controlada.
+                \item Balanceo de estados de maduración.
+                \item Pre-procesamiento de color e iluminación.
+            \end{itemize}
+        \end{modernblock}
+
+        \column{0.48\textwidth}
+        \begin{modernblock}{3. Arquitectura del Modelo}
+            \begin{itemize}
+                \item Extracción de características visuales.
+                \item Fine-tuning con redes convolucionales.
+                \item Métricas de evaluación y robustez.
+            \end{itemize}
+        \end{modernblock}
+
+        \vspace{0.15cm}
+        \begin{successblock}{4. Resultados e Impacto}
+            \begin{itemize}
+                \item Rendimiento comparativo en prueba.
+                \item Inferencia en tiempo real (Edge AI).
+                \item Conclusiones y trabajo futuro.
+            \end{itemize}
+        \end{successblock}
+    \end{columns}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% 3. PLANTEAMIENTO DEL PROBLEMA
+% ------------------------------------------------------------------------------
+\begin{frame}{El Problema: Estimación de Maduración}{Inspección Objetiva en Frutas Climatéricas}
+    \begin{columns}[T]
+        \column{0.48\textwidth}
+        \begin{block}{Fenómeno Biológico}
+            \begin{itemize}
+                \item Fruto \textbf{climatérico} con cambios no lineales de color, manchas y textura.
+                \item Subjetividad y fatiga en inspección manual.
+                \item Falta de trazabilidad cuantitativa en lotes.
+            \end{itemize}
+        \end{block}
+
+        \vspace{0.1cm}
+        \begin{alertblock}{Desafío en Visión Artificial}
+            Brillo especular y sombras que distorsionan el color real.
+        \end{alertblock}
+
+        \column{0.48\textwidth}
+        \begin{exampleblock}{Pipeline Propuesto}
+            \begin{enumerate}
+                \item \textbf{Segmentación:} Aislamiento del fruto.
+                \item \textbf{Espacios $L^*a^*b^*$ y HSV:} Robustez cromática.
+                \item \textbf{Clasificador CNN:} Maduración ordinal.
+            \end{enumerate}
+        \end{exampleblock}
+
+        \vspace{0.1cm}
+        \begin{goldblock}{Meta del Proyecto}
+            Clasificación automatizada en \textbf{7 grados estándar}.
+        \end{goldblock}
+    \end{columns}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% 4. RESULTADOS EXPERIMENTALES
+% ------------------------------------------------------------------------------
+\begin{frame}{Evaluación Experimental}{Comparación de Desempeño en Test (Validación 5-Fold)}
+    \begin{table}
+        \centering
+        \footnotesize
+        \renewcommand{\arraystretch}{1.2}
+        \begin{tabular}{l c c c c}
+            \toprule
+            \rowcolor{LightBg}
+            \textbf{Modelo Evaluado} & \textbf{Precisión (\%)} & \textbf{Recall (\%)} & \textbf{F1-Score (\%)} & \textbf{Latencia (ms)} \\
+            \midrule
+            Baseline SVM + HOG & 82.4 & 81.9 & 82.1 & \textbf{14.2} \\
+            ResNet-18 (Preentrenada) & 93.7 & 93.1 & 93.4 & 18.5 \\
+            MobileNetV3 (Optimizado) & 95.2 & 94.8 & 95.0 & 16.1 \\
+            \textbf{Modelo Propuesto (CREDA)} & \textbf{97.6} & \textbf{97.2} & \textbf{97.4} & 19.8 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \vspace{0.15cm}
+    \begin{columns}[T]
+        \column{0.55\textwidth}
+        \begin{block}{Pérdida con Penalización de Vecindad}
+            Para penalizar errores entre grados lejanos:
+            \begin{equation*}
+                \mathcal{L} = \mathcal{L}_{\text{CE}}(y, \hat{y}) + \lambda \sum_{k=1}^K |k - y| \cdot \hat{y}_k
+            \end{equation*}
+        \end{block}
+
+        \column{0.41\textwidth}
+        \begin{exampleblock}{Ventaja Práctica}
+            Garantiza que cualquier predicción errónea sea adyacente al grado real de madurez.
+        \end{exampleblock}
+    \end{columns}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% 5. CONCLUSIONES Y PROYECCIÓN
+% ------------------------------------------------------------------------------
+\begin{frame}{Conclusiones y Proyección}{Impacto en Agroindustria y Visión Aplicada}
+    \begin{columns}[T]
+        \column{0.48\textwidth}
+        \begin{block}{Aportes Principales}
+            \begin{itemize}
+                \item Sistema no destructivo reproducible alcanzando \textbf{97.4\% F1-Score}.
+                \item Mayor consistencia que la evaluación visual humana tradicional.
+                \item Arquitectura ligera integrable en computación de borde (\textit{Edge AI}).
+            \end{itemize}
+        \end{block}
+
+        \column{0.48\textwidth}
+        \begin{successblock}{Líneas Futuras}
+            \begin{itemize}
+                \item Integración con cámaras hiperespectrales para azúcares solubles totales ($^\circ\text{Brix}$).
+                \item Validación en cintas transportadoras industriales de alta velocidad.
+                \item Generalización hacia otras variedades comerciales de exportación.
+            \end{itemize}
+        \end{successblock}
+    \end{columns}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% 6. CIERRE
+% ------------------------------------------------------------------------------
+\makeETCMclosingpage{Doctorante Lucas Iturriago Salas}{liturriago@unal.edu.co}{Grupo de Control y Procesamiento Digital de Señales (GCPDS) --- UNAL Manizales}
+
+\end{document}

@@ -20,12 +20,44 @@
 % ==============================================================================
 \definecolor{IEEEBlue}{RGB}{11, 74, 117}      % Azul Institucional IEEE / ETCM Principal (#0B4A75)
 \definecolor{IEEESky}{RGB}{0, 143, 213}       % Azul Celeste / Badge "Décima Edición" (#008FD5)
-\definecolor{ETCMGold}{RGB}{249, 185, 27}     % Amarillo/Dorado distintivo ETCM (#F9B91B)
-\definecolor{ETCMRed}{RGB}{217, 37, 42}       % Rojo de acento (#D9252A)
+\definecolor{ETCMYellow}{RGB}{238, 243, 65}   % Amarillo/Lima Oficial Isotipo (#EEF341)
+\definecolor{ETCMBlue}{RGB}{39, 65, 152}      % Azul Real Oficial Isotipo (#274198)
+\definecolor{ETCMRed}{RGB}{195, 30, 10}       % Rojo Oficial Isotipo (#C31E0A)
+\definecolor{ETCMGold}{RGB}{249, 185, 27}     % Acento Dorado Secundario (#F9B91B)
 \definecolor{DarkText}{RGB}{26, 36, 50}       % Texto slate de alto contraste
 \definecolor{LightBg}{RGB}{246, 248, 251}     % Fondo suave para tarjetas y slides (#F6F8FB)
 \definecolor{BorderGray}{RGB}{220, 226, 235} % Borde sutil para tarjetas
 \definecolor{UnalBlue}{RGB}{40, 102, 158}     % Azul Institucional UNAL
+
+% ==============================================================================
+% MACRO VECTORIAL DEL LOGO OFICIAL IEEE ETCM 2026 (100% TIKZ)
+% ==============================================================================
+% Uso: \etcmLogo[escala][colorTexto]
+\newcommand{\etcmLogo}[2][1.0]{%
+\begin{tikzpicture}[scale=#1, every node/.style={transform shape}, baseline=-0.1cm]
+    % --- 1. PLANO ROJO (Superior Izquierdo - Proporción isométrica exacta W/H = sqrt(3)) ---
+    \fill[ETCMRed] 
+        (-0.866, 0.286) -- (-0.433, 0.536) -- (0.00, 0.286) -- (-0.433, 0.036) -- cycle;
+    
+    % --- 2. PLANO AMARILLO (Inferior Frontal - Base Grande) ---
+    \fill[ETCMYellow] 
+        (-1.05, -0.32) -- (0.00, 0.286) -- (1.05, -0.32) -- (0.00, -0.926) -- cycle;
+
+    % --- 3. PLANO AZUL (Superior Derecho - Superpuesto) ---
+    \fill[ETCMBlue] 
+        (-0.461, 0.247) -- (0.185, 0.622) -- (0.831, 0.247) -- (0.185, -0.128) -- cycle;
+
+    % --- 4. LÍNEA VERTICAL DIVISORIA ---
+    \draw[#2, line width=0.9pt] (1.20, -0.926) -- (1.20, 0.622);
+
+    % --- 5. TEXTO APILADO "IEEE / ETCM / 2026" ---
+    \node[anchor=west, inner sep=0pt, align=left, text=#2] at (1.35, -0.152) {%
+        {\fontsize{8.5pt}{10pt}\selectfont\sffamily\bfseries IEEE}\\[1.2pt]
+        {\fontsize{8.5pt}{10pt}\selectfont\sffamily\bfseries ETCM}\\[1.2pt]
+        {\fontsize{8.5pt}{10pt}\selectfont\sffamily\bfseries 2026}%
+    };
+\end{tikzpicture}%
+}
 
 % Configuración general de colores de Beamer
 \setbeamercolor{normal text}{fg=DarkText, bg=white}
@@ -94,7 +126,7 @@
             \fill[LightBg] (TabTopLeft) -- (TabTopRight) -- (TabBotRight) -- (TabBotLeft) -- cycle;
             \draw[BorderGray, line width=0.5pt] (TabTopLeft) -- (TabBotLeft) -- (TabBotRight);
 
-            % Texto dentro de la pestaña institucional
+            % Texto dentro de la pestaña institucional (Restaurado como antes)
             \node[anchor=center] at (\paperwidth - 1.95cm, 0.85cm) {%
                 \textcolor{IEEEBlue}{\fontsize{7.5pt}{8.5pt}\selectfont\textbf{IEEE ETCM 2026}}%
             };
@@ -106,7 +138,8 @@
             \draw[BorderGray, line width=0.5pt] (0, 0.12cm) -- (\paperwidth, 0.12cm);
         \end{tikzpicture}
     \end{beamercolorbox}
-    \vspace{0.05cm}
+    % Valor negativo: libera espacio bajo el título y sube el contenido (centrado vertical óptico)
+    \vspace{-0.45cm}
 }
 
 % ==============================================================================
@@ -120,22 +153,22 @@
             \fill[LightBg] (0, 0) rectangle (\paperwidth, 0.55cm);
 
             % Trazo angular característico IEEE ETCM:
-            % En el tercio izquierdo (x=4.2cm a x=5.0cm) quiebra en 45 grados
+            % Quiebra angular ubicada justo después del texto de autores (x=5.2cm a x=6.0cm)
             \draw[IEEEBlue, line width=1.4pt] 
-                (0, 0.05cm) -- (4.2cm, 0.05cm) -- (5.0cm, 0.45cm) -- (\paperwidth, 0.45cm);
+                (0, 0.05cm) -- (5.2cm, 0.05cm) -- (6.0cm, 0.45cm) -- (\paperwidth, 0.45cm);
 
             % Acento dorado en la arista angular
             \draw[ETCMGold, line width=1.4pt] 
-                (4.7cm, 0.30cm) -- (5.0cm, 0.45cm);
+                (5.7cm, 0.30cm) -- (6.0cm, 0.45cm);
 
             % Información izquierda (debajo de la repisa)
             \node[anchor=west] at (0.5cm, 0.25cm) {%
                 \fontsize{6pt}{7pt}\selectfont%
-                \textcolor{IEEEBlue}{\textbf{\insertshortauthor}} \textcolor{DarkText!60}{| UNAL Manizales}%
+                \textcolor{IEEEBlue}{\textbf{\insertshortauthor}} \textcolor{DarkText!60}{| UNAL \& UPSE}%
             };
 
             % Información central: Título corto
-            \node[anchor=west] at (5.3cm, 0.22cm) {%
+            \node[anchor=west] at (6.3cm, 0.22cm) {%
                 \fontsize{6pt}{7pt}\selectfont%
                 \textcolor{DarkText!80}{\insertshorttitle}%
             };
@@ -252,20 +285,9 @@
         }
         
         % --- CABECERA DE LA PORTADA: IDENTIDAD CONFERENCIA ---
-        % Rombo / Emblema vectorial ETCM arriba a la izquierda
-        \node[anchor=north west] at ([xshift=0.9cm, yshift=-0.6cm]current page.north west) {
-            \begin{tikzpicture}[scale=0.32]
-                \fill[IEEEBlue] (0,0) -- (1, 1) -- (2, 0) -- (1, -1) -- cycle;
-                \fill[ETCMRed]  (1,1) -- (2, 2) -- (3, 1) -- (2,  0) -- cycle;
-                \fill[ETCMGold] (0,-1) -- (1, 0) -- (2, -1) -- (1, -2) -- cycle;
-            \end{tikzpicture}
-        };
-        
-        \node[anchor=north west] at ([xshift=2.1cm, yshift=-0.55cm]current page.north west) {
-            \begin{tabular}{@{}l@{}}
-                \textbf{\fontsize{8.5pt}{9.5pt}\selectfont\textcolor{IEEEBlue}{IEEE ETCM 2026}} \\
-                \fontsize{6.5pt}{7.5pt}\selectfont\textcolor{DarkText!70}{10 Años $\cdot$ Ecuador}
-            \end{tabular}
+        % Logo oficial IEEE ETCM 2026 en TikZ arriba a la izquierda
+        \node[anchor=north west] at ([xshift=0.8cm, yshift=-0.5cm]current page.north west) {
+            \etcmLogo[0.72]{IEEEBlue}
         };
 
         % Badge "DÉCIMA EDICIÓN"
@@ -275,44 +297,45 @@
             };
         };
 
-        % Logo UNAL arriba a la derecha
-        \node[anchor=north east] at ([xshift=-0.9cm, yshift=-0.5cm]current page.north east) {
-            \includegraphics[height=1.1cm]{EscudoUN2016.png}
+        % Logos de Universidades arriba a la derecha (UNAL & UPSE)
+        \node[anchor=north east] at ([xshift=-0.8cm, yshift=-0.45cm]current page.north east) {
+            \includegraphics[height=1.15cm]{EscudoUNAL.png}\hspace{0.35cm}%
+            \includegraphics[height=1.15cm]{EscudoUPSE.png}
         };
 
-        % --- CUERPO CENTRAL: TÍTULOS Y AUTORÍA ---
-        \node[anchor=center, text width=14.2cm, align=center] at ([yshift=0.45cm]current page.center) {
+        % --- CUERPO CENTRAL: TÍTULOS Y AUTORÍA (Posición ajustada hacia abajo) ---
+        \node[anchor=north, text width=14.4cm, align=center] at ([yshift=-2.15cm]current page.north) {
             \hyphenpenalty=10000
-            {\fontsize{17pt}{21pt}\selectfont\textbf{\textcolor{IEEEBlue}{\inserttitle}}}\\[0.25cm]
-            {\fontsize{10.5pt}{12.5pt}\selectfont\textcolor{IEEESky}{\textbf{\insertsubtitle}}}\\[0.45cm]
+            {\fontsize{15pt}{18.5pt}\selectfont\textbf{\textcolor{IEEEBlue}{\inserttitle}}}\\[0.18cm]
+            {\fontsize{10pt}{12pt}\selectfont\textcolor{IEEESky}{\textbf{\insertsubtitle}}}\\[0.32cm]
             {\fontsize{10.5pt}{12pt}\selectfont\textbf{\textcolor{DarkText}{\insertauthor}}}\\[0.15cm]
-            {\fontsize{8.5pt}{10.5pt}\selectfont\textcolor{DarkText!75}{\insertinstitute}}
+            {\fontsize{8pt}{10pt}\selectfont\textcolor{DarkText!75}{\insertinstitute}}
         };
 
         % --- ZÓCALO INFERIOR: FRANJA SÓLIDA CON DETALLES ANGULARES ---
         % Barra base azul
         \fill[IEEEBlue] (current page.south west) rectangle ([yshift=0.75cm]current page.south east);
 
-        % Corte angular amarillo y celeste en la parte superior derecha de la barra
-        \fill[ETCMGold] ([xshift=10.2cm, yshift=0.75cm]current page.south west) -- 
-                        ([xshift=10.9cm, yshift=0.75cm]current page.south west) -- 
-                        ([xshift=11.3cm]current page.south west) -- 
-                        ([xshift=10.6cm]current page.south west) -- cycle;
+        % Corte angular amarillo y celeste perfectamente centrado y espaciado
+        \fill[ETCMGold] ([xshift=9.4cm, yshift=0.75cm]current page.south west) -- 
+                        ([xshift=10.1cm, yshift=0.75cm]current page.south west) -- 
+                        ([xshift=10.5cm]current page.south west) -- 
+                        ([xshift=9.8cm]current page.south west) -- cycle;
 
-        \fill[IEEESky]  ([xshift=10.95cm, yshift=0.75cm]current page.south west) -- 
-                        ([xshift=11.45cm, yshift=0.75cm]current page.south west) -- 
-                        ([xshift=11.85cm]current page.south west) -- 
-                        ([xshift=11.35cm]current page.south west) -- cycle;
+        \fill[IEEESky]  ([xshift=10.15cm, yshift=0.75cm]current page.south west) -- 
+                        ([xshift=10.65cm, yshift=0.75cm]current page.south west) -- 
+                        ([xshift=11.05cm]current page.south west) -- 
+                        ([xshift=10.55cm]current page.south west) -- cycle;
 
         % Textos dentro de la barra azul inferior
-        \node[anchor=west] at ([xshift=0.9cm, yshift=0.37cm]current page.south west) {
-            \fontsize{6.5pt}{7.5pt}\selectfont%
-            \textcolor{white}{\textbf{Organizado por:}} \textcolor{white!85}{IEEE Sección Ecuador} \hspace{0.25cm}
-            \textcolor{white!40}{|} \hspace{0.25cm}
+        \node[anchor=west] at ([xshift=0.8cm, yshift=0.37cm]current page.south west) {
+            \fontsize{6.2pt}{7.2pt}\selectfont%
+            \textcolor{white}{\textbf{Organizado por:}} \textcolor{white!85}{IEEE Sección Ecuador} \hspace{0.2cm}
+            \textcolor{white!40}{|} \hspace{0.2cm}
             \textcolor{white}{\textbf{Co-organizado por:}} \textcolor{white!85}{ITB \& UBE}
         };
 
-        \node[anchor=east] at ([xshift=-0.9cm, yshift=0.37cm]current page.south east) {
+        \node[anchor=east] at ([xshift=-0.8cm, yshift=0.37cm]current page.south east) {
             \fontsize{6.5pt}{7.5pt}\selectfont\textcolor{white!90}{\textbf{\insertdate}}
         };
     \end{tikzpicture}
@@ -343,9 +366,10 @@
                         ([xshift=8.95cm]current page.north west) -- 
                         ([xshift=8.45cm]current page.north west) -- cycle;
 
-        % Logo institucional UNAL centrado
+        % Logos institucionales (UNAL & UPSE) centrados
         \node[anchor=center] at ([yshift=1.2cm]current page.center) {
-            \includegraphics[height=1.7cm]{EscudoUN2016.png}
+            \includegraphics[height=1.5cm]{EscudoUNAL.png}\hspace{0.7cm}%
+            \includegraphics[height=1.5cm]{EscudoUPSE.png}
         };
 
         % Título de cierre y datos de contacto
@@ -361,8 +385,8 @@
             {\fontsize{9pt}{11pt}\selectfont\texttt{\textcolor{IEEESky}{#2}}}
         };
 
-        \node[anchor=center] at ([yshift=-1.75cm]current page.center) {
-            {\fontsize{8.5pt}{10pt}\selectfont\textcolor{DarkText!70}{#3}}
+        \node[anchor=center, align=center, text width=14.5cm] at ([yshift=-1.90cm]current page.center) {
+            {\fontsize{8.5pt}{11pt}\selectfont\textcolor{DarkText!70}{#3}}
         };
 
         % Zócalo inferior

@@ -12,10 +12,21 @@
 % ==============================================================================
 % METADATOS DE LA PRESENTACIÓN
 % ==============================================================================
-\title[Visión por Computador en Agro]{Clasificación del Estado de Maduración de Banano\\mediante Visión por Computador y Deep Learning}
+\title[Visión por Computador en Agro]{De los datos al despliegue: clasificación robusta de la madurez del banano ante variaciones de iluminación con CREDA}
 \subtitle{Avances y Metodología para Inspección No Invasiva}
-\author[Lucas Iturriago]{Doctorante Lucas Iturriago Salas}
-\institute{Grupo de Control y Procesamiento Digital de Señales (GCPDS)\\ Universidad Nacional de Colombia --- Sede Manizales}
+\author[Iturriago \& Chuquimarca]{
+Lucas Iturriago Salas, Ph.D.\inst{1} \and
+Luis Chuquimarca Jiménez, Ph.D.\inst{2}
+}
+
+\institute[UNAL -- UPSE]{
+\inst{1} Grupo de Control y Procesamiento Digital de Señales (GCPDS)\\
+Universidad Nacional de Colombia --- Sede Manizales
+\and
+\inst{2} Carrera de Electrónica y Automatización\\
+Facultad de Sistemas y Telecomunicaciones (FACSITEL)\\
+Universidad Estatal Península de Santa Elena - La Libertad
+}
 \date{IEEE ETCM 2026 $\cdot$ Octubre 2026}
 
 % ==============================================================================
@@ -33,47 +44,48 @@
 % ------------------------------------------------------------------------------
 \begin{frame}{Agenda de la Presentación}{Estructura y Organización de la Ponencia}
     \begin{columns}[T]
-        \column{0.48\textwidth}
-        \begin{modernblock}{1. Contexto y Motivación}
-            \begin{itemize}
-                \item Retos en la agroindustria bananera.
-                \item Limitaciones de la inspección manual.
-                \item Objetivos del sistema propuesto.
-            \end{itemize}
-        \end{modernblock}
-        
-        \vspace{0.15cm}
-        \begin{modernblock}{2. Adquisición y Dataset}
-            \begin{itemize}
-                \item Protocolo de captura en luz controlada.
-                \item Balanceo de estados de maduración.
-                \item Pre-procesamiento de color e iluminación.
-            \end{itemize}
-        \end{modernblock}
 
         \column{0.48\textwidth}
-        \begin{modernblock}{3. Arquitectura del Modelo}
+
+        \begin{modernblock}{1. El Problema: Estimación de Maduración}
             \begin{itemize}
-                \item Extracción de características visuales.
-                \item Fine-tuning con redes convolucionales.
-                \item Métricas de evaluación y robustez.
+                \item Cambios visuales durante la maduración del banano.
+                \item Desafíos asociados a la variabilidad de iluminación.
             \end{itemize}
         \end{modernblock}
 
         \vspace{0.15cm}
-        \begin{successblock}{4. Resultados e Impacto}
+
+        \begin{modernblock}{2. Evaluación Experimental}
             \begin{itemize}
-                \item Rendimiento comparativo en prueba.
-                \item Inferencia en tiempo real (Edge AI).
-                \item Conclusiones y trabajo futuro.
+                \item Comparación del desempeño de los modelos.
+                \item Análisis de resultados y capacidad de generalización.
+            \end{itemize}
+        \end{modernblock}
+
+        \column{0.48\textwidth}
+
+        \begin{successblock}{3. Conclusiones y Proyección}
+            \begin{itemize}
+                \item Principales aportes del enfoque propuesto.
+                \item Aplicabilidad en inspección agrícola.
+                \item Limitaciones y líneas de trabajo futuro.
             \end{itemize}
         \end{successblock}
+
     \end{columns}
 \end{frame}
 
 % ------------------------------------------------------------------------------
 % 3. PLANTEAMIENTO DEL PROBLEMA
 % ------------------------------------------------------------------------------
+
+\begin{frame}{El Problema: Estimación de Maduración}{Inspección Objetiva en Frutas Climatéricas}
+    \centering
+    \includegraphics[width=\textwidth,height=0.74\textheight,keepaspectratio]{Maduracion.png}
+\end{frame}
+
+
 \begin{frame}{El Problema: Estimación de Maduración}{Inspección Objetiva en Frutas Climatéricas}
     \begin{columns}[T]
         \column{0.48\textwidth}
@@ -109,6 +121,17 @@
 % ------------------------------------------------------------------------------
 % 4. RESULTADOS EXPERIMENTALES
 % ------------------------------------------------------------------------------
+
+\begin{frame}{Evaluación Experimental}{Robustez ante Variaciones de Iluminación}
+    \centering
+    \includegraphics[
+        width=0.98\textwidth,
+        height=0.76\textheight,
+        keepaspectratio
+    ]{Clasificacion.png}
+\end{frame}
+
+
 \begin{frame}{Evaluación Experimental}{Comparación de Desempeño en Test (Validación 5-Fold)}
     \begin{table}
         \centering
@@ -172,6 +195,9 @@
 % ------------------------------------------------------------------------------
 % 6. CIERRE
 % ------------------------------------------------------------------------------
-\makeETCMclosingpage{Doctorante Lucas Iturriago Salas}{liturriago@unal.edu.co}{Grupo de Control y Procesamiento Digital de Señales (GCPDS) --- UNAL Manizales}
+\makeETCMclosingpage
+{Prof. Lucas Iturriago Salas \& Prof. Luis Chuquimarca Jiménez}
+{liturriago@unal.edu.co \quad | \quad lchuquimarca@upse.edu.ec}
+{GCPDS -- Universidad Nacional de Colombia, Sede Manizales \\ FACSITEL -- Universidad Estatal Península de Santa Elena}
 
 \end{document}
